@@ -1,0 +1,103 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && userRole() == "admin";
+    }
+
+    function isEmployer() {
+      return isSignedIn() && userRole() == "employer";
+    }
+
+    match /users/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (
+          request.auth.uid == uid &&
+          // Allow setting role once if the document didn't have one yet (legacy users).
+          (
+            resource.data.role == null ||
+            request.resource.data.role == resource.data.role
+          )
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /jobs/{jobId} {
+      allow read: if isSignedIn();
+      allow create: if isEmployer() &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.active == true;
+      allow update, delete: if isAdmin() || (
+        isEmployer() &&
+        resource.data.createdBy == request.auth.uid
+      );
+    }
+
+    // Job applications created by users; employers update status to Approved/Hired.
+    match /applications/{applicationId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.applicantId ||
+        request.auth.uid == resource.data.employerId ||
+        isAdmin()
+      );
+
+      // User applies to a job => create application with status Applied.
+      allow create: if isSignedIn() &&
+        request.auth.uid == request.resource.data.applicantId &&
+        request.resource.data.status == "Applied" &&
+        // Job must exist and be active
+        get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.active == true &&
+        // Employer in the application must match the job poster
+        get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.createdBy == request.resource.data.employerId;
+
+      // Employer/admin updates status to Approved/Hired/Rejected.
+      allow update: if isAdmin() || (
+        request.auth.uid == resource.data.employerId &&
+        // do not allow identity fields to change
+        request.resource.data.applicantId == resource.data.applicantId &&
+        request.resource.data.employerId == resource.data.employerId &&
+        request.resource.data.jobId == resource.data.jobId &&
+        // only allow supported statuses
+        (
+          request.resource.data.status == "Approved" ||
+          request.resource.data.status == "Hired" ||
+          request.resource.data.status == "Rejected" ||
+          request.resource.data.status == "Applied"
+        )
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // Notifications delivered to each user (unique per recipient).
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && request.auth.uid == resource.data.recipientId;
+
+      // Only employers/admin can send notifications.
+      allow create: if isSignedIn() &&
+        (isAdmin() || isEmployer()) &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.recipientId != null;
+
+      // Recipient can mark read/unread (recipientId cannot be changed).
+      allow update: if isSignedIn() &&
+        request.auth.uid == resource.data.recipientId &&
+        request.resource.data.recipientId == resource.data.recipientId;
+
+      allow delete: if isAdmin();
+    }
+  }
+}
+
