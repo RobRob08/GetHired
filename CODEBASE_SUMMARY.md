@@ -7,6 +7,7 @@ GetHired is a **React Native/Expo job marketplace application** connecting job s
 ---
 
 ## Table of Contents
+
 1. [Entry Point & App Setup](#entry-point--app-setup)
 2. [Firebase Configuration](#firebase-configuration)
 3. [Navigation Architecture](#navigation-architecture)
@@ -23,6 +24,7 @@ GetHired is a **React Native/Expo job marketplace application** connecting job s
 ## Entry Point & App Setup
 
 ### App.js
+
 The root entry point that wraps the entire application with necessary context providers.
 
 ```javascript
@@ -34,6 +36,7 @@ The root entry point that wraps the entire application with necessary context pr
 ```
 
 This structure ensures:
+
 - Gestures work properly on navigation and interactive components
 - Safe layouts on all device sizes (iPhone notches, Android bezels)
 - Central routing logic managed by AppNavigator
@@ -43,24 +46,29 @@ This structure ensures:
 ## Firebase Configuration
 
 ### firebaseConfig.js
+
 Initializes Firebase application, authentication, and Firestore database.
 
 **Key Functions:**
 
 `readEnv(key)` - Reads environment variables safely
-- Retrieves Firebase credentials from .env file (marked as EXPO_PUBLIC_*)
+
+- Retrieves Firebase credentials from .env file (marked as EXPO*PUBLIC*\*)
 - Returns empty string if not found, throws error if critical credentials missing
 
 `initializeApp()` - Initializes Firebase application
+
 - Checks if app already initialized (prevents duplicates on hot refresh)
 - Uses getApps() to avoid reinitialization errors
 
 `initializeAuth()` with React Native Persistence
+
 - Uses AsyncStorage for persistent authentication
 - Allows users to stay logged in after app restart
 - Gracefully handles if auth already initialized
 
 **Firestore collections structure:**
+
 ```
 users/{uid}
 ├─ name, email, phone, role (user|employer|admin)
@@ -97,26 +105,31 @@ notifications/{notificationId}
 ## Navigation Architecture
 
 ### AppNavigator.js
+
 The central routing hub that manages authentication state and role-based navigation.
 
 **Core State:**
+
 - `user` - Authenticated user object with uid, email, name, role, location, emailVerified, profileCompleted
 - `authLoading` - Loading state during auth sync from Firestore
 
 **Main Functions:**
 
 `onAuthStateChanged()` - Firebase listener tracking login/logout
+
 - Triggers when user logs in or out
 - When user logs in: fetches profile from Firestore, syncs all user data
 - When user logs out: clears user state
 - Sets authLoading to false once profile data loaded
 
 `onSnapshot(userRef)` - Real-time user profile listener
+
 - Subscribes to user document in Firestore
 - Automatically updates UI when user data changes (name, role, location, etc.)
 - Syncs emailVerified status from Firebase Auth
 
 Email Verification Poll (every 3 seconds):
+
 - Checks if user has verified their email
 - Calls auth.currentUser.reload() to refresh auth state
 - Updates user state when verification complete
@@ -142,26 +155,31 @@ LOGGED IN + VERIFIED + PROFILE COMPLETE + ROLE="admin"
 **Tab Navigators (Role-Specific):**
 
 `TabIcon({ name, focused })` - Helper component rendering tab icons
+
 - Returns colored icon based on focused state
 - Primary blue when active, mid-gray when inactive
 
 `UserTabs({ user, onLogout })` - Bottom tab navigator for job seekers
+
 - Home: Job feed, search, filtering by category
 - Map: Location-based job browsing with interactive map
 - Track: Application status dashboard with statistics
 - Profile: User profile management and logout
 
 `EmployerTabs({ user, onLogout })` - Bottom tab navigator for employers
+
 - Dashboard: Overview of posted jobs and applicants
 - Map: View created jobs on map, create new job pins
 - Applicants: Manage incoming applications, update status
 - Profile: Company profile management and logout
 
 `AdminTabs({ onLogout })` - Simple admin navigation
+
 - Overview: Platform statistics (users, jobs, applications)
 - Users: User management interface with status toggling
 
 `handleLogout()` - Signs out user and navigates to auth stack
+
 - Calls auth.signOut() from Firebase
 - Clears user state
 - Navigates back to landing screen
@@ -173,16 +191,19 @@ LOGGED IN + VERIFIED + PROFILE COMPLETE + ROLE="admin"
 Services handle direct communication with Firebase and encapsulate business logic.
 
 ### jobsService.js
+
 Manages job listings and creation.
 
 **Functions:**
 
 `toJob(docSnap)` - Converts Firestore document to job object
+
 - Normalizes location data (handles both old latitude/longitude and new location.lat/lng formats)
 - Extracts: id, title, company, salary, type, category, latitude, longitude, active, createdBy, createdAt
 - Important: Allows backward compatibility with different location storage formats
 
 `subscribeToActiveJobs(onJobs, onError)` - Real-time listener for active jobs
+
 - Queries Firestore for all jobs where active === true
 - Filters out jobs with null/undefined coordinates (prevents map errors)
 - Calls onJobs() callback whenever active jobs change
@@ -191,11 +212,12 @@ Manages job listings and creation.
 
 ```javascript
 // Real-time update flow:
-// Employer creates job → Firestore updates → onSnapshot detects change 
+// Employer creates job → Firestore updates → onSnapshot detects change
 // → onJobs callback fires → React state updates → UI re-renders
 ```
 
 `createJobPin(payload)` - Creates new job posting
+
 - Accepts: title, company, salary, type, category, latitude, longitude, createdBy
 - Validates: trims strings, sets defaults (type="Full-time", category="Employer")
 - Stores: location as nested object {lat, lng} in Firestore
@@ -204,11 +226,13 @@ Manages job listings and creation.
 - Security: Firestore rules verify createdBy matches request.auth.uid
 
 ### applicationsService.js
+
 Manages job applications, notifications, and application status updates.
 
 **Functions:**
 
 `applyToJob(payload)` - Creates application record when user applies
+
 - Parameters: job, applicantId, applicantName, applicantEmail, employerId
 - Validation: Checks job exists, applicantId and employerId present
 - Duplicate prevention: Queries Firestore for existing application (same jobId + applicantId)
@@ -224,22 +248,26 @@ Manages job applications, notifications, and application status updates.
 ```
 
 `subscribeEmployerApplications(employerId, onApplications, onError)` - Real-time listener for employer's applications
+
 - Queries applications where employerId === employer's uid
 - Orders by createdAt descending (newest first)
 - Returns array of application documents
 - Called by ApplicantsScreen to populate application list
 
 `subscribeUserApplications(applicantId, onApplications, onError)` - Real-time listener for user's applications
+
 - Queries applications where applicantId === user's uid
 - Used by useApplications hook and TrackScreen
 - Enables users to see all their applications in real-time
 
 `setApplicationStatus(payload)` - Updates application status (Approve/Hire/Reject)
+
 - Parameters: applicationId, employerId, status
 - Updates: status, employerId (kept for security validation), updatedAt timestamp
 - Called after employer clicks action button in ApplicantsScreen
 
 `createNotification(payload)` - Creates notification when application status changes
+
 - Parameters: recipientId, senderId, type, message, meta (optional)
 - type examples: "application_approved", "application_hired", "application_rejected"
 - meta: stores additional context like applicationId, jobId, status
@@ -248,18 +276,20 @@ Manages job applications, notifications, and application status updates.
 
 ```javascript
 // Complete update flow:
-// Employer clicks "Approve" → setApplicationStatus() → 
+// Employer clicks "Approve" → setApplicationStatus() →
 // createNotification() → sends notification to applicant →
 // applicant sees update in NotificationsScreen + TrackScreen
 ```
 
 `subscribeUserNotifications(recipientId, onNotifications, onError, limitCount)` - Real-time listener for notifications
+
 - Queries notifications where recipientId === user's uid
 - Orders by createdAt descending
 - Limits results to limitCount parameter (default 10)
 - Used by useNotifications hook and NotificationsScreen
 
 `markNotificationsRead(notificationIds)` - Batch update notifications as read
+
 - Accepts array of notification IDs
 - Updates read=true and updatedAt timestamp for each
 - Runs updates in parallel for performance
@@ -271,29 +301,35 @@ Manages job applications, notifications, and application status updates.
 Custom hooks encapsulate data subscription logic and state management, making screens cleaner.
 
 ### useJobs.js
+
 Manages fetching and state for all active jobs.
 
 **State:**
+
 - `jobs` - Array of job objects
 - `loading` - Boolean indicating if jobs are being fetched
 - `errorMsg` - Error message if subscription fails
 
 **Logic:**
+
 - Calls subscribeToActiveJobs() in useEffect
 - Updates jobs array in real-time when jobs are created/updated
 - Returns unsubscribe function in cleanup to prevent memory leaks
 - No dependencies array means subscription stays alive for component lifetime
 
 **Usage:**
+
 ```javascript
 const { jobs, loading, errorMsg } = useJobs();
 // jobs automatically updates when new jobs are created in Firestore
 ```
 
 ### useApplications.js
+
 Manages user's applications and calculates status counts.
 
 **State:**
+
 - `applications` - Array of user's applications
 - `counts` - Aggregated count by status: {Applied: n, Approved: n, Hired: n, Rejected: n}
 - `loading` - Boolean
@@ -302,10 +338,12 @@ Manages user's applications and calculates status counts.
 **Key Logic:**
 
 Conditional subscription based on applicantId:
+
 - If applicantId is null/undefined: sets applications=[], loading=false (user not logged in)
 - If applicantId exists: subscribes to user's applications
 
 Count calculation using useMemo:
+
 ```javascript
 // Aggregates applications by status
 {Applied: 10, Approved: 3, Hired: 1, Rejected: 2}
@@ -313,52 +351,61 @@ Count calculation using useMemo:
 ```
 
 **Usage:**
+
 ```javascript
 const { applications, counts, loading, errorMsg } = useApplications({
-  applicantId: user?.uid
+  applicantId: user?.uid,
 });
 // counts.Applied, counts.Approved, etc. always in sync with Firestore
 ```
 
 ### useLocation.js
+
 Gets user's current location via GPS.
 
 **State:**
+
 - `place` - Object with city, region, latitude, longitude
 - `loading` - Boolean indicating if location is being fetched
 - `error` - Error message if permission denied or fetch fails
 
 **Key Logic:**
+
 - On mount: Requests GPS permission via expo-location
 - If granted: Gets current coordinates, performs reverse geocoding to get city name
 - If denied: Sets error state
 - Returns location or last known device location
 
 **Usage:**
+
 ```javascript
 const { place, loading } = useLocation();
 // place.city used in HomeScreen to show "Getting location..." while loading
 ```
 
 ### useNotifications.js
+
 Subscribes to user's notifications and counts unread.
 
 **State:**
+
 - `notifications` - Array of notification objects
 - `unreadCount` - Number of unread notifications (read === false)
 - `loading` - Boolean
 - `errorMsg` - Error message
 
 **Key Logic:**
+
 - Takes recipientId parameter
 - Conditional: Returns empty if recipientId null
 - Calculates unreadCount from notifications array
 - Real-time updates when notifications arrival
 
 **Usage:**
+
 ```javascript
 const { notifications, unreadCount } = useNotifications({
-  recipientId: user?.uid
+  recipientId: user?.uid,
 });
 // unreadCount displayed as badge on notification icon
 ```
@@ -368,9 +415,11 @@ const { notifications, unreadCount } = useNotifications({
 ## Authentication Screens
 
 ### LoginScreen.js
+
 Email/password login and Google OAuth implementation.
 
 **State Variables:**
+
 - `email`, `password` - Form inputs
 - `loading` - Email/password login loading state
 - `resetLoading` - Password reset loading state
@@ -381,12 +430,14 @@ Email/password login and Google OAuth implementation.
 **Key Functions:**
 
 `signInWithEmailAndPassword()` - Standard email/password authentication
+
 - Validates email not empty
 - Calls Firebase auth.signInWithEmailAndPassword()
 - On success: user auto-navigated to app (AppNavigator detects logged-in state)
 - On error: shows Alert with error message
 
 `handleExpoGoGoogleSignIn()` - Custom OAuth for Expo Go environment
+
 - Expo Go doesn't have standalone app identity, so uses special proxy redirect
 - Creates auth request with PKCE flow
 - Gets ID token directly (avoids code exchange complexity)
@@ -404,20 +455,24 @@ Email/password login and Google OAuth implementation.
 ```
 
 `GoogleAuthSession.useIdTokenAuthRequest()` - React hook for Google OAuth
+
 - Used for native mobile build (not Expo Go)
 - Handles platform-specific client IDs (Android/iOS)
 - WebBrowser opens native OAuth flow
 
 `sendPasswordResetEmail()` - Password reset link
+
 - Accepts user's email
 - Firebase sends reset email with verification link
 - User clicks link, sets new password
 - On success: shows success Alert
 
 ### RegisterScreen.js
+
 New account creation with role selection and email verification.
 
 **State:**
+
 - `email`, `password`, `confirmPassword` - Signup form
 - `selectedRole` - Role chosen: "user" or "employer"
 - `loading` - Signup loading state
@@ -426,16 +481,19 @@ New account creation with role selection and email verification.
 **Key Functions:**
 
 `createUserWithEmailAndPassword()` - Creates Firebase auth account
+
 - Validates: email format, password length (min 8), passwords match
 - Calls Firebase auth
 - On success: user gets email verification email automatically
 
 `sendEmailVerification()` - Sends verification email
+
 - Firebase automatically includes link to verify account
 - User clicks link → Firebase detects verification → reload() updates emailVerified flag
 - AppNavigator polls every 3 seconds, detects change, navigates past VerifyEmailScreen
 
 `setDoc(db, "users", profile)` - Creates user profile in Firestore
+
 - Stores: name, email, role, profileCompleted=false, createdAt
 - Role set by user selection (user or employer)
 - profileCompleted=false forces ProfileScreen on first login
@@ -452,9 +510,11 @@ New account creation with role selection and email verification.
 ```
 
 ### VerifyEmailScreen.js
+
 Blocks app access until email is verified.
 
 **Logic:**
+
 - Shows message: "Check your email to verify your account"
 - Periodically checks if user verified email (via AppNavigator polling)
 - When verified: AppNavigator automatically navigates to ProfileScreen (profile setup)
@@ -465,9 +525,11 @@ Blocks app access until email is verified.
 ## User Job Seeker Screens
 
 ### HomeScreen.js
+
 Primary screen for job seekers. Shows job feed, search, filtering, and apply functionality.
 
 **State:**
+
 - `search` - Search query text
 - `selectedCategoryId` - Currently selected job category filter
 - `locationModalOpen` - Modal for editing preferred job location
@@ -475,6 +537,7 @@ Primary screen for job seekers. Shows job feed, search, filtering, and apply fun
 - `savingLocation` - Loading state when saving location to profile
 
 **Data Subscriptions (via hooks):**
+
 - `useJobs()` - Gets all active jobs in real-time
 - `useLocation()` - Gets current device location
 - `useNotifications()` - Gets user's notifications with unread count
@@ -482,12 +545,14 @@ Primary screen for job seekers. Shows job feed, search, filtering, and apply fun
 **Key Functions:**
 
 `categoryCounts` - Counts jobs per category
+
 ```javascript
 // Processes jobs array into: {tech: 15, design: 8, data: 5}
 // Used in category pill section to show "(15)" next to "Tech"
 ```
 
 `filtered` - Calculates jobs matching search + category filter
+
 ```javascript
 // Filters by:
 // 1. Search text matches job title or company
@@ -496,6 +561,7 @@ Primary screen for job seekers. Shows job feed, search, filtering, and apply fun
 ```
 
 `handleApply(job)` - User taps "Apply" button on job card
+
 - Validates: user logged in, job has employerId
 - Calls applyToJob() from applicationsService
 - Checks if duplicate application (already applied)
@@ -511,16 +577,19 @@ Primary screen for job seekers. Shows job feed, search, filtering, and apply fun
 ```
 
 `savePreferredLocation()` - Saves user's preferred job location
+
 - Updates user profile with location field
 - Uses setDoc with {merge: true} to only update location field (doesn't erase other fields)
 - Shows success/error Alert
 - Closes modal on success
 
 `clearPreferredLocation()` - Clears preferred location
+
 - Sets location to empty string in user profile
 - Allows app to use device GPS location instead
 
 **UI Sections:**
+
 1. Header: GetHired logo, current location selector, notifications button with badge
 2. Search bar: Text input for job search
 3. Category pills: Scrollable horizontal list showing category counts
@@ -529,9 +598,11 @@ Primary screen for job seekers. Shows job feed, search, filtering, and apply fun
    - Tapping Apply triggers handleApply()
 
 ### MapScreen.js
+
 Interactive map view showing jobs as location pins.
 
 **Logic:**
+
 - Loads OpenStreetMap via WebView (uses Leaflet library)
 - Renders all active jobs as map pins with markers
 - Pins clustered by proximity
@@ -540,15 +611,18 @@ Interactive map view showing jobs as location pins.
 - User can adjust map view to explore locations
 
 ### TrackScreen.js
+
 Application status tracking dashboard.
 
 **State:**
+
 - Applications fetched via useApplications hook
 - Displays counts: Applied, Approved, Hired, Rejected
 
 **Key Functions:**
 
 Status aggregation from counts:
+
 ```javascript
 // Displays statistics:
 // Applied: [number] (in progress)
@@ -558,6 +632,7 @@ Status aggregation from counts:
 ```
 
 Application list with status badges showing:
+
 - Job title
 - Current status (Applied/Approved/Hired/Rejected)
 - Date applied
@@ -568,18 +643,22 @@ Application list with status badges showing:
 ## Employer Screens
 
 ### ApplicantsScreen.js
+
 Manages incoming job applications. Employers review applicants and update status.
 
 **State:**
+
 - `applications` - Array of this employer's received applications
 - `loading` - Loading state during subscription
 
 **Data Subscription:**
+
 - `subscribeEmployerApplications(user.uid, ...)` - Real-time listener for this employer's applications
 
 **Key Functions:**
 
 `handleUpdate(app, nextStatus)` - Updates application status when employer clicks action
+
 - Parameters: application object, new status (Approved/Hired/Rejected)
 - Flow:
   1. Calls `setApplicationStatus()` - updates status in Firestore
@@ -592,6 +671,7 @@ Manages incoming job applications. Employers review applicants and update status
   4. Updates applicant's TrackScreen status count
 
 Application card display:
+
 - Avatar: First letter of applicant name in colored circle
 - Name: Applicant's name
 - Job title: What job they applied for
@@ -609,26 +689,32 @@ Application card display:
 ```
 
 ### DashboardScreen.js
+
 Employer overview showing job posting statistics and applicant count.
 
 **Displays:**
+
 - Total jobs posted (all active jobs where createdBy === employer uid)
 - Total applicants received (count of all applications where employerId === employer uid)
 - Breakdown by status: Applied, Approved, Hired, Rejected
 
 ### EmployerMapScreen.js
+
 Map showing job pins created by employer.
 
 **Features:**
+
 - Shows all jobs created by this employer
 - Map pins at job coordinates
 - Tapping pin shows job details (title, company, salary)
 - Modal button to create new job posting
 
 ### EmployerJobPostingScreen.js
+
 Modal form to create new job posting.
 
 **Form Fields:**
+
 - Job title (text)
 - Company name (text)
 - Salary (text)
@@ -637,6 +723,7 @@ Modal form to create new job posting.
 - Location: Uses LocationPickerScreen (map-based picker)
 
 **Submit Flow:**
+
 - Validates all fields filled
 - Calls createJobPin() from jobsService with form data
 - Job created in Firestore with createdBy === employer uid
@@ -645,18 +732,22 @@ Modal form to create new job posting.
 - Job now visible to all job seekers in HomeScreen/MapScreen
 
 ### EmployerProfileScreen.js
+
 Company profile management.
 
 **Features:**
+
 - Display company information (name, industry, etc.)
 - Edit company profile
 - Update company photo/logo
 - Logout button (calls handleLogout in AppNavigator)
 
 ### LocationPickerScreen.js
+
 Modal with interactive map to select job location.
 
 **Logic:**
+
 - Opens full-screen map
 - User pan/zoom to desired location
 - Tap on map to select coordinates
@@ -668,9 +759,11 @@ Modal with interactive map to select job location.
 ## Admin Screens
 
 ### AdminDashboardScreen.js
+
 Platform overview showing business metrics.
 
 **Displays:**
+
 - Total users registered
 - Total employers
 - Active job postings (jobs where active === true)
@@ -678,13 +771,16 @@ Platform overview showing business metrics.
 - Flagged content queue (jobs flagged for review)
 
 **Data Sources:**
+
 - Queries across multiple Firestore collections
 - Used by platform administrators for oversight
 
 ### AdminUsersScreen.js
+
 User management interface.
 
 **Features:**
+
 - Lists all registered users
 - Shows user details (name, email, role, registration date)
 - Toggle user active status
@@ -692,6 +788,7 @@ User management interface.
 - Search/filter users
 
 **Employer/Employer User Update:**
+
 - Calls toggleUserStatus() or deleteUser() from adminService
 - Updates user.active field in Firestore
 - Inactive users can't log in
@@ -771,11 +868,12 @@ User management interface.
 ### Real-time Listener Pattern Used Throughout
 
 **Common Structure:**
+
 ```javascript
 // 1. Service function subscribes to Firestore query
 export const subscribeToXXX = (params, onData, onError) => {
   const q = query(collection, where(...), orderBy(...));
-  return onSnapshot(q, 
+  return onSnapshot(q,
     (snap) => onData(snap.docs.map...),  // Success: call callback
     (error) => onError?.(error)           // Error: call error callback
   );
@@ -785,7 +883,7 @@ export const subscribeToXXX = (params, onData, onError) => {
 export const useXXX = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   useEffect(() => {
     const unsub = subscribeToXXX(
       (data) => { setData(data); setLoading(false); },
@@ -793,7 +891,7 @@ export const useXXX = () => {
     );
     return unsub; // Cleanup
   }, []);
-  
+
   return { data, loading, error };
 };
 
@@ -805,6 +903,7 @@ const MyScreen = () => {
 ```
 
 **Benefits:**
+
 - Real-time updates without polling
 - Automatic cleanup on unmount (prevents memory leaks)
 - Efficient: only updates component if data actually changed
@@ -817,22 +916,26 @@ const MyScreen = () => {
 ### Reusable Components (src/components/)
 
 **JobCard.js**
+
 - Displays: job title, company name, salary, job type, category
 - Contains: Apply button that triggers handleApply()
 - Props: job object, onApply callback, onCardPress callback
 - Used by: HomeScreen, MapScreen
 
 **InputField.js**
+
 - Reusable text input with icon prefix
 - Props: placeholder, value, onChange, icon name, secureTextEntry
 - Used by: LoginScreen, RegisterScreen, ProfileScreen
 
 **Badge.js**
+
 - Status badge (Applied/Approved/Hired/Rejected)
 - Props: label, color, backgroundColor
 - Used by: ApplicantsScreen, TrackScreen, NotificationsScreen
 
 **ThemedText/ThemedView** (from app-example)
+
 - Typography and layout components respecting app color scheme
 - Auto dark/light mode support
 - Used for consistent styling across app
@@ -841,21 +944,21 @@ const MyScreen = () => {
 
 ```javascript
 COLORS = {
-  primary: '#2563EB',      // Main blue
-  primaryBg: '#...',       // Light blue background
-  purple: '#8B5CF6',       // Secondary accent
-  secondaryBg: '#...',     // Light purple background
-  green: '#10B981',        // Success
-  successBg: '#...',       // Light green background
-  red: '#EF4444',          // Error/Rejected
-  redBg: '#...',           // Light red background
-  orange: '#F59E0B',       // Warning
-  dark: '#1F2937',         // Dark text
-  mid: '#6B7280',          // Medium text
-  light: '#E5E7EB',        // Light dividers
-  white: '#FFFFFF',        // Backgrounds
-  bg: '#F3F4F6',           // Light background
-}
+  primary: "#2563EB", // Main blue
+  primaryBg: "#...", // Light blue background
+  purple: "#8B5CF6", // Secondary accent
+  secondaryBg: "#...", // Light purple background
+  green: "#10B981", // Success
+  successBg: "#...", // Light green background
+  red: "#EF4444", // Error/Rejected
+  redBg: "#...", // Light red background
+  orange: "#F59E0B", // Warning
+  dark: "#1F2937", // Dark text
+  mid: "#6B7280", // Medium text
+  light: "#E5E7EB", // Light dividers
+  white: "#FFFFFF", // Backgrounds
+  bg: "#F3F4F6", // Light background
+};
 ```
 
 ---
@@ -865,32 +968,38 @@ COLORS = {
 ### Firebase Security Rules (firestore.rules)
 
 **User Collection:**
+
 - Users can read/write their own document only
 - Prevents users seeing other users' private data
 
 **Jobs Collection:**
+
 - Employers can create jobs (only as createdBy === request.auth.uid)
 - Anyone can read active jobs
 - Only employer who created can update/delete
 
 **Applications Collection:**
+
 - Applicants can create applications
 - Employers can read applications where employerId === request.auth.uid
 - Applicants can read their own applications (applicantId === request.auth.uid)
 - Only employer can update status
 
 **Notifications Collection:**
+
 - Users can read notifications where recipientId === request.auth.uid
 - Prevents users seeing others' notifications
 
 ### App Permissions
 
 **GPS Location (expo-location)**
+
 - HomeScreen requests permission on first load
 - Shows city in location picker
 - User can manually override with preferred location
 
 **Email Verification**
+
 - Firebase sends verification email on signup
 - User must click link to verify
 - AppNavigator blocks app access until verified
@@ -900,18 +1009,21 @@ COLORS = {
 ## Key Patterns & Best Practices
 
 ### 1. Real-time Data Sync
+
 - Services use Firestore onSnapshot()
 - Hooks wrap with React state management
 - Screens use hooks, not services directly
 - Automatic cleanup prevents memory leaks
 
 ### 2. Error Handling
+
 - Try/catch in async functions
 - Firestore rules validate mutate operations server-side
 - UI shows Alert for errors
 - Graceful fallbacks (empty states, loading spinners)
 
 ### 3. State Management Hierarchy
+
 ```
 Firestore (source of truth)
     ↓
@@ -925,12 +1037,14 @@ Components (reusable UI building blocks)
 ```
 
 ### 4. Performance Optimization
+
 - Firestore queries use where() and orderBy() to minimize data transfer
 - useMemo() calculates derived state (count aggregation)
 - Component subscription cleanup prevents duplicate listeners
 - Images optimized via Expo Image component
 
 ### 5. User Flows
+
 - Clear navigation hierarchy: Auth → Setup Profile → Role-based tabs
 - Email verification enforced before access
 - Profile completion required before main app
