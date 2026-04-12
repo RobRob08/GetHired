@@ -14,13 +14,18 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Badge from "../../components/badge";
 import COLORS from "../../constants/colors";
+import { auth } from "../../firebase/firebaseConfig";
 import {
     deleteUser,
     subscribeToAllUsers,
     toggleUserStatus,
 } from "../../services/adminService";
 
-const AdminUsersScreen = () => {
+const isLogoutPermissionError = (error) => {
+  return error?.code === "permission-denied" && !auth.currentUser;
+};
+
+const AdminUsersScreen = ({ onLogout }) => {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +40,10 @@ const AdminUsersScreen = () => {
         setLoading(false);
       },
       (error) => {
+        if (isLogoutPermissionError(error)) {
+          setLoading(false);
+          return;
+        }
         console.error("Error fetching users:", error);
         setLoading(false);
       },
@@ -73,7 +82,7 @@ const AdminUsersScreen = () => {
           text: user.active !== false ? "Deactivate" : "Activate",
           onPress: async () => {
             try {
-              await toggleUserStatus(user.id, user.active);
+              await toggleUserStatus(user.id, user.active === false);
               Alert.alert("Success", "User status updated");
             } catch (error) {
               Alert.alert("Error", "Failed to update user status");
@@ -123,8 +132,17 @@ const AdminUsersScreen = () => {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>User Management</Text>
-        <Text style={styles.headerSubtitle}>Total: {users.length} users</Text>
+        <View style={styles.headerTop}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>User Management</Text>
+            <Text style={styles.headerSubtitle}>
+              Total: {users.length} users
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
+            <MaterialIcons name="logout" size={18} color={COLORS.white} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -255,51 +273,64 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.bg },
   header: {
     backgroundColor: COLORS.dark,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
-  headerTitle: { fontSize: 18, fontWeight: "800", color: COLORS.white },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  headerTitle: { fontSize: 16, fontWeight: "800", color: COLORS.white },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: "rgba(255,255,255,0.6)",
-    marginTop: 4,
+    marginTop: 3,
   },
-  scroll: { flex: 1, paddingHorizontal: 16 },
-  filterSection: { marginTop: 16, marginBottom: 12 },
+  logoutBtn: {
+    padding: 5,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    flexShrink: 0,
+  },
+  scroll: { flex: 1, paddingHorizontal: 10 },
+  filterSection: { marginTop: 12, marginBottom: 10 },
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: COLORS.white,
     borderWidth: 1.5,
     borderColor: COLORS.light,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    gap: 10,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    gap: 8,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 10,
-    fontSize: 13,
+    paddingVertical: 8,
+    fontSize: 12,
     color: COLORS.dark,
   },
   roleFilter: {
     flexDirection: "row",
-    gap: 8,
-    marginTop: 12,
+    gap: 6,
+    marginTop: 10,
+    flexWrap: "wrap",
   },
   filterChip: {
     borderWidth: 1.5,
     borderColor: COLORS.light,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     backgroundColor: COLORS.white,
   },
   filterChipActive: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
   },
-  filterChipText: { fontSize: 12, fontWeight: "600", color: COLORS.mid },
+  filterChipText: { fontSize: 11, fontWeight: "600", color: COLORS.mid },
   filterChipTextActive: { color: COLORS.white },
   centerContainer: {
     alignItems: "center",
@@ -315,14 +346,16 @@ const styles = StyleSheet.create({
   userCard: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: COLORS.light,
     elevation: 1,
+    gap: 8,
+    flexWrap: "wrap",
   },
   userCardInactive: {
     opacity: 0.7,
@@ -331,33 +364,37 @@ const styles = StyleSheet.create({
   userMain: {
     flex: 1,
     flexDirection: "row",
-    gap: 12,
+    gap: 10,
+    minWidth: 200,
   },
   userAvatar: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     backgroundColor: COLORS.primaryBg,
-    borderRadius: 10,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
-  userInfo: { flex: 1 },
-  userName: { fontSize: 13, fontWeight: "800", color: COLORS.dark },
-  userEmail: { fontSize: 11, color: COLORS.mid, marginTop: 2 },
+  userInfo: { flex: 1, minWidth: 0 },
+  userName: { fontSize: 12, fontWeight: "800", color: COLORS.dark },
+  userEmail: { fontSize: 10, color: COLORS.mid, marginTop: 1 },
   userMeta: {
     flexDirection: "row",
-    gap: 6,
-    marginTop: 6,
+    gap: 5,
+    marginTop: 5,
+    flexWrap: "wrap",
   },
   userActions: {
     flexDirection: "row",
-    gap: 10,
+    gap: 6,
+    flexShrink: 0,
   },
   actionBtn: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     backgroundColor: COLORS.headerBg,
-    borderRadius: 8,
+    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,

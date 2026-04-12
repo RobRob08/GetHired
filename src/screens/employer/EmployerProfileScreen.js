@@ -1,30 +1,83 @@
 // src/screens/employer/EmployerProfileScreen.js
 import { MaterialIcons } from "@expo/vector-icons";
 import { doc, setDoc } from "firebase/firestore";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import InputField from "../../components/InputField";
 import COLORS from "../../constants/colors";
 import { db } from "../../firebase/firebaseConfig";
+import useLocation from "../../hooks/useLocation";
+
+const DEFAULT_LOCATION = "Add your location...";
+const DEFAULT_WEBSITE = "www.yourcompany.com";
+const DEFAULT_COMPANY_SIZE = "Add company size...";
+const DEFAULT_INDUSTRY = "Add industry...";
+
+const formatDetectedLocation = (place) => {
+  const parts = [place?.city, place?.region].filter(Boolean);
+  return parts.join(", ").trim();
+};
 
 const EmployerProfileScreen = ({ user, onLogout, initialSetup = false }) => {
   const [editing, setEditing] = useState(initialSetup);
   const [saving, setSaving] = useState(false);
+  const [locationEdited, setLocationEdited] = useState(false);
+  const { place } = useLocation();
   const [profile, setProfile] = useState({
-    companyName: user?.name ?? "TechCorp PH",
-    location: user?.location ?? "Makati City, Philippines",
-    website: user?.website ?? "www.techcorp.ph",
-    companySize: user?.companySize ?? "50-200 employees",
-    industry: user?.industry ?? "Information Technology",
+    companyName: user?.name ?? "",
+    location: user?.location ?? DEFAULT_LOCATION,
+    website: user?.website ?? DEFAULT_WEBSITE,
+    companySize: user?.companySize ?? DEFAULT_COMPANY_SIZE,
+    industry: user?.industry ?? DEFAULT_INDUSTRY,
   });
+  const detectedLocation = formatDetectedLocation(place);
+
+  useEffect(() => {
+    setProfile({
+      companyName: user?.name ?? "",
+      location: user?.location ?? DEFAULT_LOCATION,
+      website: user?.website ?? DEFAULT_WEBSITE,
+      companySize: user?.companySize ?? DEFAULT_COMPANY_SIZE,
+      industry: user?.industry ?? DEFAULT_INDUSTRY,
+    });
+    setLocationEdited(false);
+  }, [
+    user?.name,
+    user?.location,
+    user?.website,
+    user?.companySize,
+    user?.industry,
+  ]);
+
+  useEffect(() => {
+    if (!user?.uid || !detectedLocation || user?.location?.trim()) return;
+    if (locationEdited) return;
+
+    setProfile((current) => {
+      const currentLocation = current.location?.trim();
+      if (currentLocation && currentLocation !== DEFAULT_LOCATION) {
+        return current;
+      }
+      return { ...current, location: detectedLocation };
+    });
+
+    setDoc(
+      doc(db, "users", user.uid),
+      {
+        role: user?.role ?? "employer",
+        location: detectedLocation,
+      },
+      { merge: true },
+    ).catch(() => {});
+  }, [detectedLocation, locationEdited, user?.location, user?.role, user?.uid]);
 
   const saveProfile = async () => {
     if (!user?.uid)
@@ -41,7 +94,7 @@ const EmployerProfileScreen = ({ user, onLogout, initialSetup = false }) => {
         doc(db, "users", user.uid),
         {
           name: profile.companyName.trim(),
-          role: user?.role ?? 'employer',
+          role: user?.role ?? "employer",
           location: profile.location.trim(),
           website: profile.website.trim(),
           companySize: profile.companySize.trim(),
@@ -109,7 +162,10 @@ const EmployerProfileScreen = ({ user, onLogout, initialSetup = false }) => {
             label="Location"
             iconName="location-on"
             value={profile.location}
-            onChangeText={(v) => setProfile((p) => ({ ...p, location: v }))}
+            onChangeText={(v) => {
+              setLocationEdited(true);
+              setProfile((p) => ({ ...p, location: v }));
+            }}
             placeholder="City, Country"
             editable={editing}
           />
@@ -184,92 +240,88 @@ const EmployerProfileScreen = ({ user, onLogout, initialSetup = false }) => {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.bg },
   cover: {
-    height: 100,
+    height: 80,
     backgroundColor: "#1E293B",
     justifyContent: "flex-end",
-    padding: 14,
+    padding: 10,
   },
-  coverActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
+  coverActions: { flexDirection: "row", justifyContent: "flex-end", gap: 6 },
   editBtn: {
     backgroundColor: "rgba(37,99,235,0.22)",
     borderWidth: 1,
     borderColor: "rgba(147,197,253,0.7)",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  editText: { color: "#DBEAFE", fontSize: 11, fontWeight: "700" },
+  editText: { color: "#DBEAFE", fontSize: 10, fontWeight: "700" },
   logoutBtn: {
     backgroundColor: "rgba(255,255,255,0.15)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.3)",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  logoutText: { color: "#fff", fontSize: 11, fontWeight: "700" },
-  logoWrap: { alignItems: "flex-start", paddingHorizontal: 18, marginTop: -22 },
+  logoutText: { color: "#fff", fontSize: 10, fontWeight: "700" },
+  logoWrap: { alignItems: "flex-start", paddingHorizontal: 12, marginTop: -18 },
   companyLogo: {
-    width: 70,
-    height: 70,
+    width: 60,
+    height: 60,
     backgroundColor: COLORS.primary,
-    borderRadius: 18,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 4,
+    borderWidth: 3,
     borderColor: COLORS.white,
-    elevation: 4,
+    elevation: 2,
   },
-  body: { paddingHorizontal: 18, paddingTop: 14 },
+  body: { paddingHorizontal: 12, paddingTop: 10 },
   companyName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "900",
     color: COLORS.dark,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   roleTag: {
     backgroundColor: "#F5F3FF",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     alignSelf: "flex-start",
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  roleText: { fontSize: 11, color: COLORS.purple, fontWeight: "700" },
+  roleText: { fontSize: 10, color: COLORS.purple, fontWeight: "700" },
   detailRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 11,
+    gap: 8,
     backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 6,
     elevation: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
   },
-  detailIcon: { fontSize: 18 },
-  detailLabel: { fontSize: 10, color: COLORS.mid, fontWeight: "600" },
-  detailVal: { fontSize: 12, color: COLORS.dark, fontWeight: "700" },
-  formActions: { flexDirection: "row", gap: 10, marginTop: 6 },
+  detailIcon: { fontSize: 16, flexShrink: 0 },
+  detailLabel: { fontSize: 9, color: COLORS.mid, fontWeight: "600" },
+  detailVal: { fontSize: 11, color: COLORS.dark, fontWeight: "700" },
+  formActions: { flexDirection: "row", gap: 8, marginTop: 6 },
   cancelBtn: {
     flex: 1,
     backgroundColor: "#F1F5F9",
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: "center",
-    paddingVertical: 11,
+    paddingVertical: 9,
   },
-  cancelText: { color: COLORS.mid, fontWeight: "700", fontSize: 12 },
+  cancelText: { color: COLORS.mid, fontWeight: "700", fontSize: 11 },
   saveBtn: {
     flex: 1,
     backgroundColor: COLORS.primary,
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: "center",
-    paddingVertical: 11,
+    paddingVertical: 9,
   },
-  saveText: { color: COLORS.white, fontWeight: "800", fontSize: 12 },
+  saveText: { color: COLORS.white, fontWeight: "800", fontSize: 11 },
 });
 
 export default EmployerProfileScreen;

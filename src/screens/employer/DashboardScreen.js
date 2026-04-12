@@ -6,14 +6,14 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    TouchableOpacity,
-    View,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Badge from "../../components/badge";
 import COLORS from "../../constants/colors";
+import { auth } from "../../firebase/firebaseConfig";
 import { subscribeEmployerApplications } from "../../services/applicationsService";
-import { subscribeToActiveJobs } from "../../services/jobsService";
+import { subscribeToEmployerJobs } from "../../services/jobsService";
 
 const STATUS_STYLE = {
   Active: { color: COLORS.green, bg: "#ECFDF5" },
@@ -21,9 +21,17 @@ const STATUS_STYLE = {
   Closed: { color: COLORS.mid, bg: "#F1F5F9" },
 };
 
-const DashboardScreen = ({ route }) => {
+const isLogoutPermissionError = (error) => {
+  return (
+    error?.code === "permission-denied" &&
+    !auth.currentUser
+  );
+};
+
+const DashboardScreen = ({ route, user: propsUser }) => {
   const navigation = useNavigation();
-  const { user } = route?.params || {};
+  // Try to get user from props first, then route params as fallback
+  const user = propsUser || route?.params?.user;
   const [jobs, setJobs] = useState([]);
   const [applications, setApplications] = useState([]);
 
@@ -33,14 +41,18 @@ const DashboardScreen = ({ route }) => {
     let unsubscribe = () => {};
 
     if (user?.uid) {
-      unsubscribe = subscribeToActiveJobs(
-        (activeJobs) => {
-          if (isMounted) setJobs(activeJobs);
+      unsubscribe = subscribeToEmployerJobs(
+        user.uid,
+        (employerJobs) => {
+          if (isMounted) setJobs(employerJobs);
         },
         (error) => {
-          if (isMounted) console.error("Error fetching jobs:", error);
+          if (isLogoutPermissionError(error)) return;
+          if (isMounted) console.error("Error fetching employer jobs:", error);
         },
       );
+    } else {
+      setJobs([]);
     }
 
     return () => {
@@ -50,7 +62,10 @@ const DashboardScreen = ({ route }) => {
   }, [user?.uid]);
 
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      setApplications([]);
+      return;
+    }
 
     let isMounted = true;
     const unsubscribe = subscribeEmployerApplications(
@@ -59,6 +74,7 @@ const DashboardScreen = ({ route }) => {
         if (isMounted) setApplications(apps);
       },
       (error) => {
+        if (isLogoutPermissionError(error)) return;
         if (isMounted) console.error("Error fetching applications:", error);
       },
     );
@@ -85,9 +101,6 @@ const DashboardScreen = ({ route }) => {
     ];
   }, [jobs, applications]);
 
-  const handlePostJob = () => {
-    navigation.navigate("PostJob", { user });
-  };
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       {/* Dark header */}
@@ -122,9 +135,6 @@ const DashboardScreen = ({ route }) => {
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Your Job Postings</Text>
-          <TouchableOpacity style={styles.postBtn} onPress={handlePostJob}>
-            <Text style={styles.postBtnText}>+ Post Job</Text>
-          </TouchableOpacity>
         </View>
 
         {jobs.length > 0 ? (
@@ -148,14 +158,11 @@ const DashboardScreen = ({ route }) => {
           ))
         ) : (
           <View style={styles.emptyState}>
-            <MaterialIcons name="work-outline" size={48} color={COLORS.light} />
+            <MaterialIcons name="map" size={48} color={COLORS.light} />
             <Text style={styles.emptyText}>No jobs posted yet</Text>
-            <TouchableOpacity
-              style={styles.postBtnLarge}
-              onPress={handlePostJob}
-            >
-              <Text style={styles.postBtnText}>Post Your First Job</Text>
-            </TouchableOpacity>
+            <Text style={styles.emptySubText}>
+              Create jobs from the Map tab
+            </Text>
           </View>
         )}
 
@@ -169,107 +176,114 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.bg },
   header: {
     backgroundColor: "#1E293B",
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 20,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 18,
+    gap: 8,
+    marginBottom: 10,
   },
   logoMini: {
-    width: 38,
-    height: 38,
+    width: 34,
+    height: 34,
     backgroundColor: COLORS.primary,
-    borderRadius: 11,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
-  brandName: { fontSize: 16, fontWeight: "800", color: "#fff" },
-  brandSub: { fontSize: 10, color: "rgba(255,255,255,0.5)" },
+  brandName: { fontSize: 14, fontWeight: "800", color: "#fff" },
+  brandSub: { fontSize: 9, color: "rgba(255,255,255,0.5)" },
   statsRow: {
     flexDirection: "row",
-    gap: 9,
+    gap: 6,
+    flexWrap: "wrap",
   },
   statCard: {
     flex: 1,
+    minWidth: "31%",
     backgroundColor: "rgba(255,255,255,0.07)",
-    borderRadius: 14,
-    padding: 13,
+    borderRadius: 10,
+    padding: 10,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
   },
-  statIcon: { fontSize: 20, marginBottom: 5 },
-  statNum: { fontSize: 20, fontWeight: "900" },
-  statLabel: { fontSize: 10, color: "rgba(255,255,255,0.55)", marginTop: 2 },
+  statIcon: { fontSize: 18, marginBottom: 4 },
+  statNum: { fontSize: 16, fontWeight: "900" },
+  statLabel: { fontSize: 9, color: "rgba(255,255,255,0.55)", marginTop: 1 },
   scroll: { flex: 1 },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 14,
-    marginTop: 18,
-    marginBottom: 11,
+    paddingHorizontal: 10,
+    marginTop: 12,
+    marginBottom: 8,
+    gap: 8,
+    flexWrap: "wrap",
   },
-  sectionTitle: { fontSize: 14, fontWeight: "800", color: COLORS.dark },
+  sectionTitle: { fontSize: 13, fontWeight: "800", color: COLORS.dark },
   postBtn: {
     backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    paddingHorizontal: 13,
-    paddingVertical: 7,
-    elevation: 2,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  postBtnText: { color: COLORS.white, fontSize: 11, fontWeight: "700" },
+  postBtnText: { color: COLORS.white, fontSize: 10, fontWeight: "700" },
   jobCard: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: COLORS.white,
-    borderRadius: 14,
-    padding: 12,
-    marginHorizontal: 14,
-    marginBottom: 10,
-    gap: 10,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
+    borderRadius: 10,
+    padding: 10,
+    marginHorizontal: 10,
+    marginBottom: 8,
+    gap: 8,
+    elevation: 1,
     borderWidth: 1.5,
     borderColor: "#F1F5F9",
+    flexWrap: "wrap",
   },
   jobLogo: {
-    width: 42,
-    height: 42,
+    width: 38,
+    height: 38,
     backgroundColor: COLORS.bg,
-    borderRadius: 11,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
-  jobInfo: { flex: 1 },
-  jobTitle: { fontSize: 13, fontWeight: "800", color: COLORS.dark },
-  jobMeta: { fontSize: 10, color: COLORS.mid, marginTop: 2 },
+  jobInfo: { flex: 1, minWidth: 150 },
+  jobTitle: { fontSize: 12, fontWeight: "800", color: COLORS.dark },
+  jobMeta: { fontSize: 9, color: COLORS.mid, marginTop: 1 },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 60,
-    paddingHorizontal: 20,
+    paddingVertical: 40,
+    paddingHorizontal: 12,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
     color: COLORS.mid,
-    marginTop: 12,
-    marginBottom: 20,
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  emptySubText: {
+    fontSize: 11,
+    color: COLORS.light,
+    marginBottom: 14,
+    fontStyle: "italic",
   },
   postBtnLarge: {
     backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    elevation: 2,
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    elevation: 1,
   },
 });
 

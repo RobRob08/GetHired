@@ -8,6 +8,8 @@ import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import React, { useState } from "react";
 import {
     Alert,
+    KeyboardAvoidingView,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -108,7 +110,10 @@ const RegisterScreen = ({ navigation }) => {
           "Success",
           "Account created. A verification email was sent to your inbox.",
         );
-        navigation.navigate("VerifyEmail");
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "VerifyEmail" }],
+        });
       } catch (error) {
         // Account was created, but verification email couldn't be sent.
         Alert.alert(
@@ -131,118 +136,128 @@ const RegisterScreen = ({ navigation }) => {
   };
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
       style={styles.container}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
-      {/* Back */}
-      <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
-        <MaterialIcons name="arrow-back" size={20} color={COLORS.dark} />
-      </TouchableOpacity>
-
-      {/* Logo */}
-      <View style={styles.logoBox}>
-        <MaterialIcons name="assignment" size={26} color={COLORS.white} />
-      </View>
-      <Text style={styles.title}>Create Account</Text>
-      <Text style={styles.subtitle}>Choose your account type</Text>
-
-      {/* Role picker */}
-      <View style={styles.rolePicker}>
-        {ROLES.map((r) => (
-          <TouchableOpacity
-            key={r.key}
-            style={[styles.roleCard, role === r.key && styles.roleCardActive]}
-            onPress={() => setRole(r.key)}
-            activeOpacity={0.8}
-          >
-            <MaterialIcons
-              name={r.icon}
-              size={22}
-              style={styles.roleIcon}
-              color={role === r.key ? COLORS.primary : COLORS.mid}
-            />
-            <Text
-              style={[
-                styles.roleLabel,
-                role === r.key && styles.roleLabelActive,
-              ]}
-            >
-              {r.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Form fields */}
-      <InputField
-        label="Full Name"
-        iconName="person"
-        placeholder="Juan Dela Cruz"
-        value={name}
-        onChangeText={setName}
-      />
-      <InputField
-        label="Email"
-        iconName="email"
-        placeholder="you@email.com"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-      />
-      <InputField
-        label="Phone Number"
-        iconName="phone"
-        placeholder="+63 9XX XXX XXXX"
-        value={phone}
-        onChangeText={setPhone}
-        keyboardType="phone-pad"
-      />
-      <InputField
-        label="Password"
-        iconName="lock"
-        placeholder="••••••••"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <InputField
-        label="Repeat Password"
-        iconName="lock"
-        placeholder="••••••••"
-        value={confirm}
-        onChangeText={setConfirm}
-        secureTextEntry
-      />
-
-      {/* Register button */}
-      <TouchableOpacity
-        style={styles.registerBtn}
-        onPress={handleRegister}
-        disabled={loading}
-        activeOpacity={0.85}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.registerBtnText}>
-          {loading ? "Creating..." : "Register"}
-        </Text>
-      </TouchableOpacity>
-
-      <View style={styles.loginRow}>
-        <Text style={styles.loginText}>Already have an account? </Text>
+        {/* Back */}
         <TouchableOpacity
-          onPress={() => navigation.navigate("Login")}
-          disabled={loading}
+          style={styles.back}
+          onPress={() => navigation.goBack()}
         >
-          <Text style={styles.loginLink}>Log In</Text>
+          <MaterialIcons name="arrow-back" size={20} color={COLORS.dark} />
         </TouchableOpacity>
-      </View>
-    </ScrollView>
+
+        {/* Logo */}
+        <View style={styles.logoBox}>
+          <MaterialIcons name="assignment" size={26} color={COLORS.white} />
+        </View>
+        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.subtitle}>Choose your account type</Text>
+
+        {/* Role picker */}
+        <View style={styles.rolePicker}>
+          {ROLES.map((r) => (
+            <TouchableOpacity
+              key={r.key}
+              style={[styles.roleCard, role === r.key && styles.roleCardActive]}
+              onPress={() => setRole(r.key)}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons
+                name={r.icon}
+                size={22}
+                style={styles.roleIcon}
+                color={role === r.key ? COLORS.primary : COLORS.mid}
+              />
+              <Text
+                style={[
+                  styles.roleLabel,
+                  role === r.key && styles.roleLabelActive,
+                ]}
+              >
+                {r.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Form fields */}
+        <InputField
+          label="Full Name"
+          iconName="person"
+          placeholder="Juan Dela Cruz"
+          value={name}
+          onChangeText={setName}
+        />
+        <InputField
+          label="Email"
+          iconName="email"
+          placeholder="you@email.com"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+        />
+        <InputField
+          label="Phone Number"
+          iconName="phone"
+          placeholder="+63 9XX XXX XXXX"
+          value={phone}
+          onChangeText={setPhone}
+          keyboardType="phone-pad"
+        />
+        <InputField
+          label="Password"
+          iconName="lock"
+          placeholder="••••••••"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+        <InputField
+          label="Repeat Password"
+          iconName="lock"
+          placeholder="••••••••"
+          value={confirm}
+          onChangeText={setConfirm}
+          secureTextEntry
+        />
+
+        {/* Register button */}
+        <TouchableOpacity
+          style={styles.registerBtn}
+          onPress={handleRegister}
+          disabled={loading}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.registerBtnText}>
+            {loading ? "Creating..." : "Register"}
+          </Text>
+        </TouchableOpacity>
+
+        <View style={styles.loginRow}>
+          <Text style={styles.loginText}>Already have an account? </Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("Login")}
+            disabled={loading}
+          >
+            <Text style={styles.loginLink}>Log In</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
+  scrollView: { flex: 1 },
   content: { padding: 24, paddingBottom: 40 },
   back: {
     backgroundColor: COLORS.bg,

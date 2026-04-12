@@ -1,6 +1,6 @@
 // src/components/Badge.js
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
 
 const Badge = ({ label, color, backgroundColor }) => {
   return (
@@ -12,14 +12,15 @@ const Badge = ({ label, color, backgroundColor }) => {
 
 const styles = StyleSheet.create({
   badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 20,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
+    flexShrink: 0,
   },
   label: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: "700",
   },
 });
 

@@ -1,16 +1,24 @@
 // src/screens/employer/EmployerMapScreen.js
 // Employer map using OpenStreetMap (Leaflet) in a WebView (works in Expo Go)
-import React, { useMemo, useRef, useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
-import COLORS from '../../constants/colors';
-import { JOB_CATEGORIES } from '../../constants/data';
-import useLocation from '../../hooks/useLocation';
-import useJobs from '../../hooks/useJobs';
-import InputField from '../../components/InputField';
-import { createJobPin } from '../../services/jobsService';
+import { MaterialIcons } from "@expo/vector-icons";
+import React, { useMemo, useRef, useState } from "react";
+import {
+    Alert,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { WebView } from "react-native-webview";
+import InputField from "../../components/InputField";
+import COLORS from "../../constants/colors";
+import { JOB_CATEGORIES } from "../../constants/data";
+import useJobs from "../../hooks/useJobs";
+import useLocation from "../../hooks/useLocation";
+import { createJobPin } from "../../services/jobsService";
 
 const EmployerMapScreen = ({ user }) => {
   const { location } = useLocation();
@@ -20,11 +28,11 @@ const EmployerMapScreen = ({ user }) => {
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState({
-    title: '',
-    company: user?.name ?? 'Your Company',
-    salary: '',
-    type: 'Full-time',
-    category: JOB_CATEGORIES?.[0]?.label ?? 'Tech',
+    title: "",
+    company: user?.name ?? "Your Company",
+    salary: "",
+    type: "Full-time",
+    category: JOB_CATEGORIES?.[0]?.label ?? "Tech",
     latitude: null,
     longitude: null,
   });
@@ -33,6 +41,22 @@ const EmployerMapScreen = ({ user }) => {
   const centerLng = location?.longitude ?? 121.0244;
 
   const mapHtml = useMemo(() => {
+    const currentLocationJs = `
+      (function () {
+        var employerLocationIcon = L.divIcon({
+          className: 'custom-current-location-icon',
+          html: '<div class="current-location-pin employer-pin"><div class="current-location-dot"></div></div>',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+          popupAnchor: [0, -12],
+        });
+
+        var m = L.marker([${centerLat}, ${centerLng}], { icon: employerLocationIcon }).addTo(window.map);
+        m.bindPopup('Your current location');
+        window.__currentLocationMarker = m;
+      })();
+    `;
+
     const markersJs = jobs
       .map((job) => {
         const payload = {
@@ -52,7 +76,7 @@ const EmployerMapScreen = ({ user }) => {
             <button
               style="margin-top: 10px; width: 100%; padding: 8px 10px; border-radius: 10px; border: 0; background: #2563EB; color: #fff; font-weight: 800; font-size: 12px;"
               onclick='window.ReactNativeWebView.postMessage(${JSON.stringify(
-                JSON.stringify({ type: 'openJob', job: payload })
+                JSON.stringify({ type: "openJob", job: payload }),
               )})'
             >
               View details
@@ -70,7 +94,7 @@ const EmployerMapScreen = ({ user }) => {
           })();
         `;
       })
-      .join('\n');
+      .join("\n");
 
     return `
       <!DOCTYPE html>
@@ -87,6 +111,31 @@ const EmployerMapScreen = ({ user }) => {
           <style>
             html, body, #map { margin: 0; padding: 0; height: 100%; width: 100%; }
             .leaflet-control-attribution { font-size: 10px; }
+            .custom-current-location-icon {
+              background: transparent;
+              border: 0;
+            }
+            .current-location-pin {
+              width: 24px;
+              height: 24px;
+              border-radius: 10px 10px 10px 2px;
+              transform: rotate(45deg);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: 0 10px 22px rgba(15, 23, 42, 0.22);
+              border: 3px solid #ffffff;
+            }
+            .current-location-pin.employer-pin {
+              background: linear-gradient(135deg, #7c3aed, #2563eb);
+            }
+            .current-location-dot {
+              width: 8px;
+              height: 8px;
+              border-radius: 999px;
+              background: #ffffff;
+              transform: rotate(-45deg);
+            }
           </style>
         </head>
         <body>
@@ -104,6 +153,7 @@ const EmployerMapScreen = ({ user }) => {
             }).addTo(window.map);
 
             window.__markers = {};
+            ${currentLocationJs}
 
             // Tap on map to create a new pin
             window.map.on('click', function (e) {
@@ -144,8 +194,16 @@ const EmployerMapScreen = ({ user }) => {
   };
 
   const submitCreate = async () => {
-    if (!draft.title.trim() || !draft.salary.trim() || draft.latitude == null || draft.longitude == null) {
-      Alert.alert('Missing fields', 'Please add title, salary, and map location.');
+    if (
+      !draft.title.trim() ||
+      !draft.salary.trim() ||
+      draft.latitude == null ||
+      draft.longitude == null
+    ) {
+      Alert.alert(
+        "Missing fields",
+        "Please add title, salary, and map location.",
+      );
       return;
     }
 
@@ -153,27 +211,30 @@ const EmployerMapScreen = ({ user }) => {
     try {
       await createJobPin({
         title: draft.title,
-        company: draft.company || user?.name || 'Your Company',
+        company: draft.company || user?.name || "Your Company",
         salary: draft.salary,
         type: draft.type,
         category: draft.category,
         latitude: draft.latitude,
         longitude: draft.longitude,
-        createdBy: user?.uid ?? null,
+        createdBy: user?.uid,
       });
 
       setCreateOpen(false);
       setDraft({
-        title: '',
-        company: user?.name ?? 'Your Company',
-        salary: '',
-        type: 'Full-time',
-        category: JOB_CATEGORIES?.[0]?.label ?? 'Tech',
+        title: "",
+        company: user?.name ?? "Your Company",
+        salary: "",
+        type: "Full-time",
+        category: JOB_CATEGORIES?.[0]?.label ?? "Tech",
         latitude: null,
         longitude: null,
       });
     } catch (error) {
-      Alert.alert('Failed to create pin', error?.message ?? 'Please try again.');
+      Alert.alert(
+        "Failed to create pin",
+        error?.message ?? "Please try again.",
+      );
     } finally {
       setCreating(false);
     }
@@ -184,9 +245,9 @@ const EmployerMapScreen = ({ user }) => {
   const onMessage = (event) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'mapClick') {
+      if (data.type === "mapClick") {
         openCreateWithCoords(data.latitude, data.longitude);
-      } else if (data.type === 'openJob') {
+      } else if (data.type === "openJob") {
         setDetailsJob(data.job);
       }
     } catch {
@@ -195,34 +256,44 @@ const EmployerMapScreen = ({ user }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle}>GetHired · Employer Map</Text>
-          <TouchableOpacity style={styles.addBtn} onPress={() => openCreateWithCoords(centerLat, centerLng)} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={() => openCreateWithCoords(centerLat, centerLng)}
+            activeOpacity={0.85}
+          >
             <MaterialIcons name="add" size={18} color={COLORS.white} />
           </TouchableOpacity>
         </View>
         <TouchableOpacity style={styles.searchBar} activeOpacity={0.9}>
           <MaterialIcons name="search" size={16} color={COLORS.mid} />
-          <Text style={styles.searchPlaceholder}>Tap map to drop a job pin…</Text>
+          <Text style={styles.searchPlaceholder}>
+            Tap map to drop a job pin…
+          </Text>
         </TouchableOpacity>
       </View>
 
       <WebView
         ref={webViewRef}
         style={styles.map}
-        originWhitelist={['*']}
+        originWhitelist={["*"]}
         source={{ html: mapHtml }}
         onMessage={onMessage}
       />
 
       <View style={styles.drawer}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
           <MaterialIcons name="location-on" size={14} color={COLORS.dark} />
           <Text style={styles.drawerTitle}>{jobs.length} Pins</Text>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 9 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 9 }}
+        >
           {jobs.map((job) => (
             <TouchableOpacity
               key={job.id}
@@ -230,9 +301,18 @@ const EmployerMapScreen = ({ user }) => {
               onPress={() => focusJobOnMap(job)}
               activeOpacity={0.8}
             >
-              <MaterialIcons name="work" size={18} color={COLORS.primary} style={styles.cardIcon} />
-              <Text style={styles.cardTitle} numberOfLines={1}>{job.title}</Text>
-              <Text style={styles.cardCompany} numberOfLines={1}>{job.company}</Text>
+              <MaterialIcons
+                name="work"
+                size={18}
+                color={COLORS.primary}
+                style={styles.cardIcon}
+              />
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {job.title}
+              </Text>
+              <Text style={styles.cardCompany} numberOfLines={1}>
+                {job.company}
+              </Text>
               <Text style={styles.cardSalary}>{job.salary}</Text>
             </TouchableOpacity>
           ))}
@@ -240,12 +320,21 @@ const EmployerMapScreen = ({ user }) => {
       </View>
 
       {/* Create pin modal */}
-      <Modal visible={createOpen} animationType="slide" transparent onRequestClose={() => setCreateOpen(false)}>
+      <Modal
+        visible={createOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setCreateOpen(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Post Job Pin</Text>
-              <TouchableOpacity onPress={() => setCreateOpen(false)} style={styles.modalClose} activeOpacity={0.8}>
+              <TouchableOpacity
+                onPress={() => setCreateOpen(false)}
+                style={styles.modalClose}
+                activeOpacity={0.8}
+              >
                 <MaterialIcons name="close" size={18} color={COLORS.dark} />
               </TouchableOpacity>
             </View>
@@ -294,7 +383,10 @@ const EmployerMapScreen = ({ user }) => {
                       style={[
                         styles.catChip,
                         { backgroundColor: cat.bg },
-                        selected && { borderWidth: 2, borderColor: COLORS.primary },
+                        selected && {
+                          borderWidth: 2,
+                          borderColor: COLORS.primary,
+                        },
                       ]}
                       activeOpacity={0.85}
                       onPress={() =>
@@ -312,31 +404,52 @@ const EmployerMapScreen = ({ user }) => {
 
             <View style={styles.coordRow}>
               <Text style={styles.coordText}>
-                Pin: {draft.latitude?.toFixed?.(5) ?? '—'}, {draft.longitude?.toFixed?.(5) ?? '—'}
+                Pin: {draft.latitude?.toFixed?.(5) ?? "—"},{" "}
+                {draft.longitude?.toFixed?.(5) ?? "—"}
               </Text>
-              <Text style={styles.coordHint}>Tap the map to set pin location</Text>
+              <Text style={styles.coordHint}>
+                Tap the map to set pin location
+              </Text>
             </View>
 
-            <TouchableOpacity style={styles.modalPrimary} onPress={submitCreate} activeOpacity={0.9} disabled={creating}>
-              <Text style={styles.modalPrimaryText}>{creating ? 'Creating...' : 'Create Pin'}</Text>
+            <TouchableOpacity
+              style={styles.modalPrimary}
+              onPress={submitCreate}
+              activeOpacity={0.9}
+              disabled={creating}
+            >
+              <Text style={styles.modalPrimaryText}>
+                {creating ? "Creating..." : "Create Pin"}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
       {/* Details modal */}
-      <Modal visible={!!detailsJob} animationType="fade" transparent onRequestClose={() => setDetailsJob(null)}>
+      <Modal
+        visible={!!detailsJob}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setDetailsJob(null)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.detailsCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Job Details</Text>
-              <TouchableOpacity onPress={() => setDetailsJob(null)} style={styles.modalClose} activeOpacity={0.8}>
+              <TouchableOpacity
+                onPress={() => setDetailsJob(null)}
+                style={styles.modalClose}
+                activeOpacity={0.8}
+              >
                 <MaterialIcons name="close" size={18} color={COLORS.dark} />
               </TouchableOpacity>
             </View>
             <Text style={styles.detailsTitle}>{detailsJob?.title}</Text>
             <Text style={styles.detailsCompany}>{detailsJob?.company}</Text>
-            <Text style={styles.detailsMeta}>{detailsJob?.salary} · {detailsJob?.type}</Text>
+            <Text style={styles.detailsMeta}>
+              {detailsJob?.salary} · {detailsJob?.type}
+            </Text>
 
             <TouchableOpacity
               style={[styles.modalPrimary, { marginTop: 14 }]}
@@ -363,15 +476,20 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 14,
   },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  headerTitle: { fontSize: 15, fontWeight: '800', color: COLORS.dark },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  headerTitle: { fontSize: 15, fontWeight: "800", color: COLORS.dark },
   addBtn: {
     width: 34,
     height: 34,
     backgroundColor: COLORS.primary,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     elevation: 2,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 2 },
@@ -379,8 +497,8 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: COLORS.white,
     borderRadius: 13,
     paddingHorizontal: 13,
@@ -400,14 +518,14 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     paddingLeft: 14,
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.07,
     shadowRadius: 12,
   },
   drawerTitle: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: "800",
     color: COLORS.dark,
     marginBottom: 9,
   },
@@ -420,14 +538,19 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primaryLight,
   },
   cardIcon: { marginBottom: 5 },
-  cardTitle: { fontSize: 11, fontWeight: '800', color: COLORS.dark, marginBottom: 2 },
+  cardTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: COLORS.dark,
+    marginBottom: 2,
+  },
   cardCompany: { fontSize: 10, color: COLORS.mid, marginBottom: 4 },
-  cardSalary: { fontSize: 10, color: COLORS.primary, fontWeight: '600' },
+  cardSalary: { fontSize: 10, color: COLORS.primary, fontWeight: "600" },
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15,23,42,0.45)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(15,23,42,0.45)",
+    justifyContent: "flex-end",
   },
   modalCard: {
     backgroundColor: COLORS.white,
@@ -442,40 +565,59 @@ const styles = StyleSheet.create({
     marginHorizontal: 18,
     marginTop: 120,
   },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  modalTitle: { fontSize: 14, fontWeight: '900', color: COLORS.dark },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  modalTitle: { fontSize: 14, fontWeight: "900", color: COLORS.dark },
   modalClose: {
     width: 34,
     height: 34,
     borderRadius: 12,
     backgroundColor: COLORS.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   coordRow: { marginTop: 2, marginBottom: 12 },
-  coordText: { fontSize: 11, color: COLORS.dark, fontWeight: '700' },
+  coordText: { fontSize: 11, color: COLORS.dark, fontWeight: "700" },
   coordHint: { fontSize: 10, color: COLORS.mid, marginTop: 3 },
   catSelectWrap: { marginTop: 2, marginBottom: 10 },
-  catSelectLabel: { fontSize: 11, fontWeight: '900', color: COLORS.dark, marginBottom: 8 },
+  catSelectLabel: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: COLORS.dark,
+    marginBottom: 8,
+  },
   catChip: {
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
+    borderColor: "rgba(0,0,0,0.06)",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  catChipText: { fontSize: 12, fontWeight: '900' },
+  catChipText: { fontSize: 12, fontWeight: "900" },
   modalPrimary: {
     backgroundColor: COLORS.primary,
     borderRadius: 14,
     paddingVertical: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
-  modalPrimaryText: { color: COLORS.white, fontSize: 12, fontWeight: '900' },
-  detailsTitle: { fontSize: 15, fontWeight: '900', color: COLORS.dark, marginTop: 4 },
+  modalPrimaryText: { color: COLORS.white, fontSize: 12, fontWeight: "900" },
+  detailsTitle: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: COLORS.dark,
+    marginTop: 4,
+  },
   detailsCompany: { fontSize: 11, color: COLORS.mid, marginTop: 4 },
-  detailsMeta: { fontSize: 12, color: COLORS.primary, fontWeight: '800', marginTop: 8 },
+  detailsMeta: {
+    fontSize: 12,
+    color: COLORS.primary,
+    fontWeight: "800",
+    marginTop: 8,
+  },
 });
 
 export default EmployerMapScreen;
-

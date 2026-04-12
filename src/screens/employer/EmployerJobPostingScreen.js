@@ -35,8 +35,10 @@ const CATEGORIES = [
   "Finance",
 ];
 
-const EmployerJobPostingScreen = ({ route, navigation }) => {
-  const { user, selectedLocation: routeLocation } = route.params || {};
+const EmployerJobPostingScreen = ({ route, navigation, user: propsUser }) => {
+  // Try to get user from props first, then route params as fallback
+  const user = propsUser || route?.params?.user;
+  const { selectedLocation: routeLocation } = route?.params || {};
   const { location } = useLocation();
   const defaultLat = location?.latitude ?? 14.5547;
   const defaultLng = location?.longitude ?? 121.0244;
@@ -88,6 +90,14 @@ const EmployerJobPostingScreen = ({ route, navigation }) => {
       return;
     }
 
+    if (!user?.uid) {
+      Alert.alert(
+        "Authentication Error",
+        "User ID is missing. Please log in again.",
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       await createJobPin({
@@ -98,7 +108,7 @@ const EmployerJobPostingScreen = ({ route, navigation }) => {
         category: formData.category,
         latitude: selectedLocation.latitude,
         longitude: selectedLocation.longitude,
-        createdBy: user?.uid,
+        createdBy: user.uid,
       });
 
       Alert.alert("Success", "Job posted successfully!", [
@@ -109,7 +119,10 @@ const EmployerJobPostingScreen = ({ route, navigation }) => {
       ]);
     } catch (error) {
       console.error("Error posting job:", error);
-      Alert.alert("Error", "Failed to post job. Please try again.");
+      Alert.alert(
+        "Error",
+        error?.message || "Failed to post job. Please try again.",
+      );
     } finally {
       setLoading(false);
     }

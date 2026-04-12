@@ -53,8 +53,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.white,
     borderRadius: 16,
-    padding: 14,
-    marginBottom: 10,
+    padding: 12,
+    marginBottom: 8,
     borderWidth: 1.5,
     borderColor: COLORS.grayBg,
     shadowColor: COLORS.primary,
@@ -66,24 +66,25 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 10,
+    gap: 8,
   },
   logoBox: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     backgroundColor: COLORS.bg,
-    borderRadius: 11,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
   info: {
     flex: 1,
   },
   title: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "800",
     color: COLORS.dark,
-    marginBottom: 3,
+    marginBottom: 2,
   },
   company: {
     fontSize: 11,
@@ -96,6 +97,7 @@ const styles = StyleSheet.create({
   },
   right: {
     alignItems: "flex-end",
+    flexShrink: 0,
   },
   salary: {
     fontSize: 12,
@@ -103,15 +105,15 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
   applyBtn: {
-    marginTop: 8,
+    marginTop: 6,
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
   applyText: {
     color: COLORS.white,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
   },
 });

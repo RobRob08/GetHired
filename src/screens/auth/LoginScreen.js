@@ -1,24 +1,25 @@
 // src/screens/auth/LoginScreen.js
 import { MaterialIcons } from "@expo/vector-icons";
-import * as GoogleAuthSession from "expo-auth-session/providers/google";
 import * as AuthSession from "expo-auth-session";
+import * as GoogleAuthSession from "expo-auth-session/providers/google";
 import Constants from "expo-constants";
 import * as WebBrowser from "expo-web-browser";
 import {
-  GoogleAuthProvider,
-  sendPasswordResetEmail,
-  signInWithCredential,
-  signInWithEmailAndPassword,
+    GoogleAuthProvider,
+    sendPasswordResetEmail,
+    signInWithCredential,
+    signInWithEmailAndPassword,
 } from "firebase/auth";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 import InputField from "../../components/InputField";
@@ -32,9 +33,7 @@ const googleWebClientId = readEnv("EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID");
 const googleAndroidClientId = readEnv("EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID");
 const googleIosClientId = readEnv("EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID");
 const isExpoGo = Constants.appOwnership === "expo";
-const expoProxyRedirectUri = readEnv(
-  "EXPO_PUBLIC_EXPO_PROXY_REDIRECT_URI",
-);
+const expoProxyRedirectUri = readEnv("EXPO_PUBLIC_EXPO_PROXY_REDIRECT_URI");
 let expoRedirectUri = undefined;
 if (isExpoGo) {
   try {
@@ -83,11 +82,15 @@ const LoginScreen = ({ navigation }) => {
       // In Expo Go we don't have a standalone Android/iOS package identity,
       // so use only the web client id for the popup flow.
       iosClientId: isExpoGo ? undefined : googleIosClientId || undefined,
-      androidClientId: isExpoGo ? undefined : googleAndroidClientId || undefined,
+      androidClientId: isExpoGo
+        ? undefined
+        : googleAndroidClientId || undefined,
       webClientId: googleWebClientId || undefined,
       // Force the redirectUri to match Google Cloud allow-list for Expo Go.
       // Set `EXPO_PUBLIC_EXPO_PROXY_REDIRECT_URI` in your `.env` to the exact value.
-      redirectUri: isExpoGo ? expoProxyRedirectUri || expoRedirectUri : undefined,
+      redirectUri: isExpoGo
+        ? expoProxyRedirectUri || expoRedirectUri
+        : undefined,
     });
 
   const handleExpoGoGoogleSignIn = async () => {
@@ -306,7 +309,10 @@ const LoginScreen = ({ navigation }) => {
 
   const handleGoogleButtonPress = async () => {
     if (!googleWebClientId && !googleAndroidClientId && !googleIosClientId) {
-      Alert.alert("Google Setup Error", "Missing Google client IDs in .env file");
+      Alert.alert(
+        "Google Setup Error",
+        "Missing Google client IDs in .env file",
+      );
       return;
     }
 
@@ -327,10 +333,7 @@ const LoginScreen = ({ navigation }) => {
 
       await promptAsync();
     } catch (error) {
-      Alert.alert(
-        "Google Sign-In Failed",
-        error?.message ?? "Unknown error.",
-      );
+      Alert.alert("Google Sign-In Failed", error?.message ?? "Unknown error.");
     } finally {
       setGoogleLoading(false);
     }
@@ -382,101 +385,109 @@ const LoginScreen = ({ navigation }) => {
   };
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
       style={styles.container}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
-      {/* Back */}
-      <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
-        <MaterialIcons name="arrow-back" size={20} color={COLORS.dark} />
-      </TouchableOpacity>
-
-      {/* Logo */}
-      <View style={styles.logoBox}>
-        <MaterialIcons name="assignment" size={26} color={COLORS.white} />
-      </View>
-      <Text style={styles.title}>Welcome Back!</Text>
-      <Text style={styles.subtitle}>Sign in to continue your job search</Text>
-
-      {/* Inputs */}
-      <InputField
-        label="Email"
-        iconName="email"
-        placeholder="you@email.com"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-      />
-      <InputField
-        label="Password"
-        iconName="lock"
-        placeholder="••••••••"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-
-      <TouchableOpacity
-        style={styles.forgot}
-        disabled={loading || resetLoading}
-        onPress={handleForgotPassword}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.forgotText}>
-          {resetLoading ? "Sending reset..." : "Forgot Password?"}
-        </Text>
-      </TouchableOpacity>
-
-      {/* Login button */}
-      <TouchableOpacity
-        style={styles.loginBtn}
-        onPress={handleLogin}
-        activeOpacity={0.85}
-        disabled={loading}
-      >
-        <Text style={styles.loginBtnText}>
-          {loading ? "Signing in..." : "Login"}
-        </Text>
-      </TouchableOpacity>
-
-      {/* Divider */}
-      <View style={styles.divider}>
-        <View style={styles.line} />
-        <Text style={styles.dividerText}>Or</Text>
-        <View style={styles.line} />
-      </View>
-
-      {/* Google */}
-      <TouchableOpacity
-        style={styles.googleBtn}
-        activeOpacity={0.85}
-        disabled={
-          loading || resetLoading || googleLoading
-        }
-        onPress={handleGoogleButtonPress}
-      >
-        <Text style={styles.googleIcon}>G</Text>
-        <Text style={styles.googleText}>
-          {getGoogleButtonLabel(googleLoading, googleSigninModule)}
-        </Text>
-      </TouchableOpacity>
-
-      {/* Sign up link */}
-      <View style={styles.signupRow}>
-        <Text style={styles.signupText}>Don&apos;t have an account? </Text>
+        {/* Back */}
         <TouchableOpacity
-          onPress={() => navigation.navigate("Register")}
+          style={styles.back}
+          onPress={() => navigation.goBack()}
+        >
+          <MaterialIcons name="arrow-back" size={20} color={COLORS.dark} />
+        </TouchableOpacity>
+
+        {/* Logo */}
+        <View style={styles.logoBox}>
+          <MaterialIcons name="assignment" size={26} color={COLORS.white} />
+        </View>
+        <Text style={styles.title}>Welcome Back!</Text>
+        <Text style={styles.subtitle}>Sign in to continue your job search</Text>
+
+        {/* Inputs */}
+        <InputField
+          label="Email"
+          iconName="email"
+          placeholder="you@email.com"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+        />
+        <InputField
+          label="Password"
+          iconName="lock"
+          placeholder="••••••••"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+
+        <TouchableOpacity
+          style={styles.forgot}
+          disabled={loading || resetLoading}
+          onPress={handleForgotPassword}
+        >
+          <Text style={styles.forgotText}>
+            {resetLoading ? "Sending reset..." : "Forgot Password?"}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Login button */}
+        <TouchableOpacity
+          style={styles.loginBtn}
+          onPress={handleLogin}
+          activeOpacity={0.85}
           disabled={loading}
         >
-          <Text style={styles.signupLink}>Sign Up</Text>
+          <Text style={styles.loginBtnText}>
+            {loading ? "Signing in..." : "Login"}
+          </Text>
         </TouchableOpacity>
-      </View>
-    </ScrollView>
+
+        {/* Divider */}
+        <View style={styles.divider}>
+          <View style={styles.line} />
+          <Text style={styles.dividerText}>Or</Text>
+          <View style={styles.line} />
+        </View>
+
+        {/* Google */}
+        <TouchableOpacity
+          style={styles.googleBtn}
+          activeOpacity={0.85}
+          disabled={loading || resetLoading || googleLoading}
+          onPress={handleGoogleButtonPress}
+        >
+          <Text style={styles.googleIcon}>G</Text>
+          <Text style={styles.googleText}>
+            {getGoogleButtonLabel(googleLoading, googleSigninModule)}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Sign up link */}
+        <View style={styles.signupRow}>
+          <Text style={styles.signupText}>Don&apos;t have an account? </Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("Register")}
+            disabled={loading}
+          >
+            <Text style={styles.signupLink}>Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
+  scrollView: { flex: 1 },
   content: { padding: 24, paddingBottom: 40 },
   back: {
     backgroundColor: COLORS.bg,

@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { auth } from "../firebase/firebaseConfig";
 import { subscribeUserApplications } from "../services/applicationsService";
+
+const isLogoutPermissionError = (error) => {
+  return error?.code === "permission-denied" && !auth.currentUser;
+};
 
 const useApplications = ({ applicantId }) => {
   const [applications, setApplications] = useState([]);
@@ -22,6 +27,12 @@ const useApplications = ({ applicantId }) => {
         setLoading(false);
       },
       (err) => {
+        if (isLogoutPermissionError(err)) {
+          setApplications([]);
+          setErrorMsg(null);
+          setLoading(false);
+          return;
+        }
         setErrorMsg(err?.message ?? "Could not load applications.");
         setLoading(false);
       },
@@ -43,4 +54,3 @@ const useApplications = ({ applicantId }) => {
 };
 
 export default useApplications;
-

@@ -1,28 +1,36 @@
 // src/screens/user/ProfileScreen.js
 import { MaterialIcons } from "@expo/vector-icons";
 import { doc, setDoc } from "firebase/firestore";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import InputField from "../../components/InputField";
 import COLORS from "../../constants/colors";
 import { db } from "../../firebase/firebaseConfig";
+import useLocation from "../../hooks/useLocation";
 
 const DEFAULT_LOCATION = "Add your location...";
 const DEFAULT_EXPERIENCE = "Add your experience...";
 const DEFAULT_EDUCATION = "Add your education...";
 const DEFAULT_SKILLS = "Add your skills...";
 
+const formatDetectedLocation = (place) => {
+  const parts = [place?.city, place?.region].filter(Boolean);
+  return parts.join(", ").trim();
+};
+
 const ProfileScreen = ({ user, onLogout, initialSetup = false }) => {
   const [editing, setEditing] = useState(initialSetup);
   const [saving, setSaving] = useState(false);
+  const [locationEdited, setLocationEdited] = useState(false);
+  const { place } = useLocation();
   const [profile, setProfile] = useState({
     name: user?.name ?? "",
     location: user?.location ?? DEFAULT_LOCATION,
@@ -30,6 +38,46 @@ const ProfileScreen = ({ user, onLogout, initialSetup = false }) => {
     education: user?.education ?? DEFAULT_EDUCATION,
     skills: user?.skills ?? DEFAULT_SKILLS,
   });
+  const detectedLocation = formatDetectedLocation(place);
+
+  useEffect(() => {
+    setProfile({
+      name: user?.name ?? "",
+      location: user?.location ?? DEFAULT_LOCATION,
+      experience: user?.experience ?? DEFAULT_EXPERIENCE,
+      education: user?.education ?? DEFAULT_EDUCATION,
+      skills: user?.skills ?? DEFAULT_SKILLS,
+    });
+    setLocationEdited(false);
+  }, [
+    user?.name,
+    user?.location,
+    user?.experience,
+    user?.education,
+    user?.skills,
+  ]);
+
+  useEffect(() => {
+    if (!user?.uid || !detectedLocation || user?.location?.trim()) return;
+    if (locationEdited) return;
+
+    setProfile((current) => {
+      const currentLocation = current.location?.trim();
+      if (currentLocation && currentLocation !== DEFAULT_LOCATION) {
+        return current;
+      }
+      return { ...current, location: detectedLocation };
+    });
+
+    setDoc(
+      doc(db, "users", user.uid),
+      {
+        role: user?.role ?? "user",
+        location: detectedLocation,
+      },
+      { merge: true },
+    ).catch(() => {});
+  }, [detectedLocation, locationEdited, user?.location, user?.role, user?.uid]);
 
   const saveProfile = async () => {
     if (!user?.uid)
@@ -117,7 +165,10 @@ const ProfileScreen = ({ user, onLogout, initialSetup = false }) => {
             iconName="location-on"
             value={profile.location}
             placeholder="City, Country"
-            onChangeText={(v) => setProfile((p) => ({ ...p, location: v }))}
+            onChangeText={(v) => {
+              setLocationEdited(true);
+              setProfile((p) => ({ ...p, location: v }));
+            }}
             editable={editing}
           />
           <InputField
@@ -151,9 +202,9 @@ const ProfileScreen = ({ user, onLogout, initialSetup = false }) => {
               color={COLORS.primary}
               style={styles.aboutIcon}
             />
-            <View>
+            <View style={styles.aboutContent}>
               <Text style={styles.aboutLabel}>Email</Text>
-              <Text style={styles.aboutVal}>
+              <Text style={styles.aboutVal} numberOfLines={2}>
                 {user?.email ?? "Not available"}
               </Text>
             </View>
@@ -193,98 +244,101 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: COLORS.headerBg,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
   },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  headerTitle: { fontSize: 15, fontWeight: "800", color: COLORS.dark },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 0,
+  },
+  headerTitle: { fontSize: 14, fontWeight: "800", color: COLORS.dark },
   editBtn: {
     backgroundColor: COLORS.primaryBg,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  editText: { color: COLORS.primary, fontSize: 11, fontWeight: "700" },
+  editText: { color: COLORS.primary, fontSize: 10, fontWeight: "700" },
   logoutBtn: {
     backgroundColor: COLORS.redBg,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  logoutText: { color: COLORS.red, fontSize: 11, fontWeight: "700" },
-  cover: { height: 110, backgroundColor: COLORS.primary },
-  avatarWrap: { alignItems: "center", marginTop: -40, marginBottom: 10 },
+  logoutText: { color: COLORS.red, fontSize: 10, fontWeight: "700" },
+  cover: { height: 80, backgroundColor: COLORS.primary },
+  avatarWrap: { alignItems: "center", marginTop: -30, marginBottom: 8 },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: COLORS.gray,
-    borderWidth: 4,
+    borderWidth: 3,
     borderColor: COLORS.white,
     alignItems: "center",
     justifyContent: "center",
-    elevation: 4,
+    elevation: 2,
   },
   infoSection: {
     alignItems: "center",
-    paddingHorizontal: 18,
-    paddingBottom: 10,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
   },
   name: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "900",
     color: COLORS.dark,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   roleTag: {
     backgroundColor: COLORS.primaryBg,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    marginBottom: 7,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    marginBottom: 5,
   },
-  roleText: { fontSize: 11, color: COLORS.primary, fontWeight: "700" },
-  stats: { fontSize: 11, color: COLORS.mid, marginBottom: 2 },
-  formWrap: { paddingHorizontal: 14, paddingTop: 8 },
+  roleText: { fontSize: 10, color: COLORS.primary, fontWeight: "700" },
+  stats: { fontSize: 10, color: COLORS.mid, marginBottom: 1 },
+  formWrap: { paddingHorizontal: 10, paddingTop: 6 },
   aboutRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 11,
+    gap: 8,
     backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 6,
     elevation: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
   },
-  aboutIcon: { fontSize: 18 },
-  aboutLabel: { fontSize: 10, color: COLORS.mid, fontWeight: "600" },
-  aboutVal: { fontSize: 12, color: COLORS.dark, fontWeight: "700" },
+  aboutIcon: { fontSize: 16, flexShrink: 0 },
+  aboutContent: { flex: 1, minWidth: 0 },
+  aboutLabel: { fontSize: 9, color: COLORS.mid, fontWeight: "600" },
+  aboutVal: { fontSize: 11, color: COLORS.dark, fontWeight: "700" },
   formActions: {
     flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: 14,
+    gap: 8,
+    paddingHorizontal: 10,
     marginTop: 6,
   },
   cancelBtn: {
     flex: 1,
     backgroundColor: COLORS.grayBg,
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: "center",
-    paddingVertical: 11,
+    paddingVertical: 9,
   },
-  cancelText: { color: COLORS.mid, fontWeight: "700", fontSize: 12 },
+  cancelText: { color: COLORS.mid, fontWeight: "700", fontSize: 11 },
   saveBtn: {
     flex: 1,
     backgroundColor: COLORS.primary,
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: "center",
-    paddingVertical: 11,
+    paddingVertical: 9,
   },
-  saveText: { color: COLORS.white, fontWeight: "800", fontSize: 12 },
+  saveText: { color: COLORS.white, fontWeight: "800", fontSize: 11 },
 });
 
 export default ProfileScreen;

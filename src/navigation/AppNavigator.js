@@ -1,12 +1,14 @@
 // src/navigation/AppNavigator.js
 import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Auth Screens
 import LandingScreen from "../screens/auth/LandingScreen";
@@ -26,20 +28,19 @@ import TrackScreen from "../screens/user/TrackScreen";
 // Employer Screens
 import ApplicantsScreen from "../screens/employer/ApplicantsScreen";
 import DashboardScreen from "../screens/employer/DashboardScreen";
-import EmployerJobPostingScreen from "../screens/employer/EmployerJobPostingScreen";
 import EmployerMapScreen from "../screens/employer/EmployerMapScreen";
 import EmployerProfileScreen from "../screens/employer/EmployerProfileScreen";
-import LocationPickerScreen from "../screens/employer/LocationPickerScreen";
 
 // Admin Screens
 import AdminDashboardScreen from "../screens/admin/AdminDashboardScreen";
 import AdminUsersScreen from "../screens/admin/AdminUsersScreen";
 
 import COLORS from "../constants/colors";
-import { auth, db } from "../firebase/firebaseConfig";
+import { auth, db, firebaseConfigError } from "../firebase/firebaseConfig";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
+const HAS_LAUNCHED_KEY = "gethired.hasLaunched";
 
 // ── Tab icon helper ────────────────────────────────────────────────────────
 const TabIcon = ({ name, focused }) => (
@@ -52,6 +53,7 @@ const TabIcon = ({ name, focused }) => (
 
 // ── Role-specific Tab Navigators ──────────────────────────────────────────
 function UserTabs({ user, onLogout }) {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -59,9 +61,9 @@ function UserTabs({ user, onLogout }) {
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopColor: COLORS.light,
-          paddingBottom: 8,
+          paddingBottom: insets.bottom + 8,
           paddingTop: 6,
-          height: 62,
+          height: 62 + insets.bottom,
           elevation: 8,
           shadowColor: "#000",
           shadowOffset: { width: 0, height: -2 },
@@ -89,7 +91,7 @@ function UserTabs({ user, onLogout }) {
           tabBarIcon: ({ focused }) => <TabIcon name="map" focused={focused} />,
         }}
       >
-        {() => <MapScreen />}
+        {() => <MapScreen user={user} />}
       </Tab.Screen>
       <Tab.Screen
         name="Track"
@@ -118,6 +120,7 @@ function UserTabs({ user, onLogout }) {
 }
 
 function EmployerTabs({ user, onLogout }) {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -125,9 +128,9 @@ function EmployerTabs({ user, onLogout }) {
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopColor: COLORS.light,
-          paddingBottom: 8,
+          paddingBottom: insets.bottom + 8,
           paddingTop: 6,
-          height: 62,
+          height: 62 + insets.bottom,
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.mid,
@@ -178,7 +181,8 @@ function EmployerTabs({ user, onLogout }) {
   );
 }
 
-function AdminTabs({ onLogout }) {
+function AdminTabs({ user, onLogout }) {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -186,9 +190,9 @@ function AdminTabs({ onLogout }) {
         tabBarStyle: {
           backgroundColor: "#1E293B",
           borderTopColor: "rgba(255,255,255,0.1)",
-          paddingBottom: 8,
+          paddingBottom: insets.bottom + 8,
           paddingTop: 6,
-          height: 62,
+          height: 62 + insets.bottom,
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: "rgba(255,255,255,0.4)",
@@ -203,7 +207,9 @@ function AdminTabs({ onLogout }) {
           ),
         }}
       >
-        {(props) => <AdminDashboardScreen {...props} />}
+        {(props) => (
+          <AdminDashboardScreen {...props} user={user} onLogout={onLogout} />
+        )}
       </Tab.Screen>
       <Tab.Screen
         name="Users"
@@ -223,17 +229,80 @@ function AdminTabs({ onLogout }) {
 export default function AppNavigator() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [startupRoute, setStartupRoute] = useState("Landing");
+  const [startupLoading, setStartupLoading] = useState(true);
+  const [accountDisabled, setAccountDisabled] = useState(false);
+  const authenticatedInitialRoute = !user
+    ? null
+    : !user.emailVerified
+      ? "VerifyEmail"
+      : !user.profileCompleted
+        ? "InitialSetup"
+        : "Main";
+  const navigatorKey = user
+    ? `authenticated-${authenticatedInitialRoute}`
+    : `guest-${startupRoute}`;
 
   useEffect(() => {
+    let mounted = true;
+
+    const loadStartupRoute = async () => {
+      try {
+        const hasLaunched = await AsyncStorage.getItem(HAS_LAUNCHED_KEY);
+        if (!mounted) return;
+
+        if (hasLaunched) {
+          setStartupRoute("Landing");
+        } else {
+          setStartupRoute("Splash");
+          await AsyncStorage.setItem(HAS_LAUNCHED_KEY, "true");
+        }
+      } catch {
+        if (mounted) {
+          setStartupRoute("Landing");
+        }
+      } finally {
+        if (mounted) {
+          setStartupLoading(false);
+        }
+      }
+    };
+
+    loadStartupRoute();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!accountDisabled) return;
+
+    Alert.alert(
+      "Account Disabled",
+      "Your account has been disabled by an administrator.",
+    );
+    setStartupRoute("Landing");
+    setAccountDisabled(false);
+  }, [accountDisabled]);
+
+  useEffect(() => {
+    if (!auth || !db) {
+      setAuthLoading(false);
+      return () => {};
+    }
+
     let profileUnsub = () => {};
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         profileUnsub();
         setUser(null);
+        setAccountDisabled(false);
         setAuthLoading(false);
         return;
       }
 
+      setStartupRoute("Landing");
       setAuthLoading(true);
 
       const userRef = doc(db, "users", firebaseUser.uid);
@@ -241,23 +310,46 @@ export default function AppNavigator() {
         userRef,
         (snap) => {
           const profile = snap.exists() ? snap.data() : {};
+          if (profile?.active === false) {
+            setAccountDisabled(true);
+            setUser(null);
+            setAuthLoading(false);
+            signOut(auth).catch(() => {});
+            return;
+          }
+
+          setAccountDisabled(false);
           setUser({
             uid: firebaseUser.uid,
             email: firebaseUser.email,
             name: profile?.name ?? firebaseUser.displayName ?? "User",
             role: profile?.role ?? "user",
             location: profile?.location ?? "",
+            experience: profile?.experience ?? "",
+            education: profile?.education ?? "",
+            skills: profile?.skills ?? "",
+            website: profile?.website ?? "",
+            companySize: profile?.companySize ?? "",
+            industry: profile?.industry ?? "",
             emailVerified: firebaseUser.emailVerified,
             profileCompleted: profile?.profileCompleted ?? true,
           });
           setAuthLoading(false);
         },
         () => {
+          setAccountDisabled(false);
           setUser({
             uid: firebaseUser.uid,
             email: firebaseUser.email,
             name: firebaseUser.displayName ?? "User",
             role: "user",
+            location: "",
+            experience: "",
+            education: "",
+            skills: "",
+            website: "",
+            companySize: "",
+            industry: "",
             emailVerified: firebaseUser.emailVerified,
             profileCompleted: true,
           });
@@ -298,10 +390,24 @@ export default function AppNavigator() {
   }, [user?.uid, user?.emailVerified]);
 
   const handleLogout = async () => {
+    setStartupRoute("Landing");
     await signOut(auth);
   };
 
-  if (authLoading) {
+  if (firebaseConfigError) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>App startup failed</Text>
+        <Text style={styles.errorText}>{firebaseConfigError}</Text>
+        <Text style={styles.errorHint}>
+          For Android release builds, rebuild after updating `.env` so Expo can
+          inline the `EXPO_PUBLIC_*` values into the bundle.
+        </Text>
+      </View>
+    );
+  }
+
+  if (authLoading || startupLoading) {
     return (
       <View
         style={{
@@ -318,7 +424,12 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator
+        key={navigatorKey}
+        screenOptions={{ headerShown: false, animationEnabled: false }}
+        detachInactiveScreens={false}
+        initialRouteName={user ? authenticatedInitialRoute : startupRoute}
+      >
         {!user ? (
           // ── Auth flow ──────────────────────────────────────────────────
           <>
@@ -337,7 +448,7 @@ export default function AppNavigator() {
               <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
             ) : user.role === "admin" ? (
               <Stack.Screen name="Main">
-                {() => <AdminTabs onLogout={handleLogout} />}
+                {() => <AdminTabs user={user} onLogout={handleLogout} />}
               </Stack.Screen>
             ) : !user.profileCompleted ? (
               <Stack.Screen name="InitialSetup">
@@ -391,14 +502,7 @@ export default function AppNavigator() {
                       headerShown: false,
                     }}
                   >
-                    <Stack.Screen name="PostJob">
-                      {(props) => (
-                        <EmployerJobPostingScreen {...props} user={user} />
-                      )}
-                    </Stack.Screen>
-                    <Stack.Screen name="LocationPicker">
-                      {(props) => <LocationPickerScreen {...props} />}
-                    </Stack.Screen>
+                    {/* Job posting is now handled through the Map tab */}
                   </Stack.Group>
                 </>
               </>
@@ -409,3 +513,33 @@ export default function AppNavigator() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  errorContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    backgroundColor: COLORS.bg,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: COLORS.dark,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  errorText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: COLORS.dark,
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  errorHint: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: COLORS.mid,
+    textAlign: "center",
+  },
+});

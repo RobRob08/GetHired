@@ -20,39 +20,26 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
       allow create: if isSignedIn() && request.auth.uid == uid;
-      allow update: if isSignedIn() && (
-        isAdmin() ||
-        (
-          request.auth.uid == uid &&
-          // Allow setting role once if the document didn't have one yet (legacy users).
-          (
-            resource.data.role == null ||
-            request.resource.data.role == resource.data.role
-          )
-        )
-      );
+      allow update: if isSignedIn() && (request.auth.uid == uid || isAdmin());
       allow delete: if isAdmin();
     }
 
     match /jobs/{jobId} {
       allow read: if isSignedIn();
-      allow create: if isEmployer() &&
+      allow create: if isSignedIn() &&
         request.resource.data.createdBy == request.auth.uid &&
         request.resource.data.active == true;
-      allow update, delete: if isAdmin() || (
-        isEmployer() &&
-        resource.data.createdBy == request.auth.uid
+      allow update, delete: if isSignedIn() && (
+        isAdmin() || (
+          resource.data.createdBy == request.auth.uid
+        )
       );
     }
 
     // Job applications created by users; employers update status to Approved/Hired.
     match /applications/{applicationId} {
-      allow read: if isSignedIn() && (
-        request.auth.uid == resource.data.applicantId ||
-        request.auth.uid == resource.data.employerId ||
-        isAdmin()
-      );
-
+      allow read: if isSignedIn();
+      
       // User applies to a job => create application with status Applied.
       allow create: if isSignedIn() &&
         request.auth.uid == request.resource.data.applicantId &&
@@ -85,9 +72,8 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read: if isSignedIn() && request.auth.uid == resource.data.recipientId;
 
-      // Only employers/admin can send notifications.
+      // Admins and any authenticated user can send notifications.
       allow create: if isSignedIn() &&
-        (isAdmin() || isEmployer()) &&
         request.resource.data.senderId == request.auth.uid &&
         request.resource.data.recipientId != null;
 

@@ -3,36 +3,42 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Badge from "../../components/badge";
 import COLORS from "../../constants/colors";
+import { auth } from "../../firebase/firebaseConfig";
 import {
-    getAdminStats,
-    reviewFlaggedJob,
-    subscribeToFlaggedContent,
+  getAdminStats,
+  reviewFlaggedJob,
+  subscribeToDailyActivity,
+  subscribeToFlaggedContent,
 } from "../../services/adminService";
 
-const ACTIVITY = [
-  { label: "New Users Today", val: 12, max: 50, color: COLORS.primary },
-  { label: "New Jobs Posted", val: 8, max: 30, color: COLORS.purple },
-  { label: "Applications Today", val: 47, max: 100, color: COLORS.green },
-];
+const isLogoutPermissionError = (error) => {
+  return error?.code === "permission-denied" && !auth.currentUser;
+};
 
-const AdminDashboardScreen = () => {
+const AdminDashboardScreen = ({ user, onLogout }) => {
   const navigation = useNavigation();
   const [stats, setStats] = useState({
     totalUsers: 0,
+    regularUsers: 0,
     totalEmployers: 0,
     activeJobs: 0,
     totalApplications: 0,
+  });
+  const [dailyActivity, setDailyActivity] = useState({
+    newUsers: 0,
+    newJobs: 0,
+    applications: 0,
   });
   const [flaggedContent, setFlaggedContent] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,9 +59,23 @@ const AdminDashboardScreen = () => {
   }, []);
 
   useEffect(() => {
+    const unsubscribe = subscribeToDailyActivity(
+      (activity) => setDailyActivity(activity),
+      (error) => {
+        if (isLogoutPermissionError(error)) return;
+        console.error("Error fetching daily activity:", error);
+      },
+    );
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
     const unsubscribe = subscribeToFlaggedContent(
       (flagged) => setFlaggedContent(flagged),
-      (error) => console.error("Error fetching flagged content:", error),
+      (error) => {
+        if (isLogoutPermissionError(error)) return;
+        console.error("Error fetching flagged content:", error);
+      },
     );
     return () => unsubscribe();
   }, []);
@@ -91,34 +111,33 @@ const AdminDashboardScreen = () => {
     () => [
       {
         label: "Total Users",
-        n: stats.totalUsers.toString(),
+        n: (user?.role === "admin"
+          ? stats.regularUsers
+          : stats.totalUsers
+        ).toString(),
         color: COLORS.primary,
         icon: "group",
-        trend: "+12%",
       },
       {
         label: "Employers",
         n: stats.totalEmployers.toString(),
         color: COLORS.purple,
         icon: "business",
-        trend: "+5%",
       },
       {
         label: "Active Jobs",
         n: stats.activeJobs.toString(),
         color: COLORS.green,
         icon: "work",
-        trend: "+18%",
       },
       {
         label: "Applications",
         n: stats.totalApplications.toString(),
         color: COLORS.amber,
         icon: "mail",
-        trend: "+22%",
       },
     ],
-    [stats],
+    [stats, user?.role],
   );
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -128,10 +147,13 @@ const AdminDashboardScreen = () => {
           <View style={styles.logoMini}>
             <MaterialIcons name="assignment" size={17} color="#fff" />
           </View>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.brandName}>GetHired</Text>
             <Text style={styles.brandSub}>Admin Panel</Text>
           </View>
+          <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
+            <MaterialIcons name="logout" size={18} color={COLORS.white} />
+          </TouchableOpacity>
         </View>
         <Text style={styles.pageTitle}>Platform Overview</Text>
         <Text style={styles.pageDate}>Real-time stats · Feb 17, 2026</Text>
@@ -156,9 +178,6 @@ const AdminDashboardScreen = () => {
                 >
                   <View style={styles.statTop}>
                     <MaterialIcons name={s.icon} size={20} color="#fff" />
-                    <View style={styles.trendBadge}>
-                      <Text style={styles.trendText}>{s.trend}</Text>
-                    </View>
                   </View>
                   <Text style={[styles.statNum, { color: s.color }]}>
                     {s.n}
@@ -170,28 +189,64 @@ const AdminDashboardScreen = () => {
 
             {/* Activity bars */}
             <View style={styles.activityCard}>
-              <Text style={styles.cardTitle}>Platform Activity</Text>
-              {ACTIVITY.map((bar, i) => (
-                <View key={i} style={styles.barRow}>
-                  <View style={styles.barMeta}>
-                    <Text style={styles.barLabel}>{bar.label}</Text>
-                    <Text style={[styles.barVal, { color: bar.color }]}>
-                      {bar.val}
-                    </Text>
-                  </View>
-                  <View style={styles.barBg}>
-                    <View
-                      style={[
-                        styles.barFill,
-                        {
-                          width: `${(bar.val / bar.max) * 100}%`,
-                          backgroundColor: bar.color,
-                        },
-                      ]}
-                    />
-                  </View>
+              <Text style={styles.cardTitle}>Platform Activity (Today)</Text>
+              <View style={styles.barRow}>
+                <View style={styles.barMeta}>
+                  <Text style={styles.barLabel}>New Users Today</Text>
+                  <Text style={[styles.barVal, { color: COLORS.primary }]}>
+                    {dailyActivity.newUsers}
+                  </Text>
                 </View>
-              ))}
+                <View style={styles.barBg}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      {
+                        width: `${Math.min((dailyActivity.newUsers / 50) * 100, 100)}%`,
+                        backgroundColor: COLORS.primary,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+              <View style={styles.barRow}>
+                <View style={styles.barMeta}>
+                  <Text style={styles.barLabel}>New Jobs Posted</Text>
+                  <Text style={[styles.barVal, { color: COLORS.purple }]}>
+                    {dailyActivity.newJobs}
+                  </Text>
+                </View>
+                <View style={styles.barBg}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      {
+                        width: `${Math.min((dailyActivity.newJobs / 30) * 100, 100)}%`,
+                        backgroundColor: COLORS.purple,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+              <View style={styles.barRow}>
+                <View style={styles.barMeta}>
+                  <Text style={styles.barLabel}>Applications Today</Text>
+                  <Text style={[styles.barVal, { color: COLORS.green }]}>
+                    {dailyActivity.applications}
+                  </Text>
+                </View>
+                <View style={styles.barBg}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      {
+                        width: `${Math.min((dailyActivity.applications / 100) * 100, 100)}%`,
+                        backgroundColor: COLORS.green,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
             </View>
 
             {/* Flagged content */}
@@ -278,35 +333,40 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.dark },
   header: {
     backgroundColor: COLORS.dark,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 14,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255,255,255,0.06)",
   },
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 10,
   },
   logoMini: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     backgroundColor: COLORS.primary,
-    borderRadius: 10,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
-  brandName: { fontSize: 15, fontWeight: "800", color: COLORS.white },
-  brandSub: { fontSize: 10, color: "rgba(255,255,255,0.45)" },
+  brandName: { fontSize: 14, fontWeight: "800", color: COLORS.white },
+  brandSub: { fontSize: 9, color: "rgba(255,255,255,0.45)" },
+  logoutBtn: {
+    padding: 5,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
   pageTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "900",
     color: COLORS.white,
-    marginBottom: 3,
+    marginBottom: 2,
   },
-  pageDate: { fontSize: 11, color: "rgba(255,255,255,0.4)" },
+  pageDate: { fontSize: 10, color: "rgba(255,255,255,0.4)" },
   scroll: { flex: 1 },
   loadingContainer: {
     alignItems: "center",
@@ -316,14 +376,16 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
-    padding: 14,
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   statCard: {
-    width: "47%",
+    flex: 1,
+    minWidth: "45%",
     backgroundColor: COLORS.dark,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 12,
+    padding: 10,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
   },
@@ -331,72 +393,74 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 9,
+    marginBottom: 6,
   },
-  statIcon: { fontSize: 20 },
+  statIcon: { fontSize: 18 },
   trendBadge: {
     backgroundColor: "rgba(16,185,129,0.12)",
-    borderRadius: 20,
-    paddingHorizontal: 7,
+    borderRadius: 16,
+    paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  trendText: { fontSize: 10, color: COLORS.green, fontWeight: "700" },
-  statNum: { fontSize: 22, fontWeight: "900" },
-  statLabel: { fontSize: 10, color: "rgba(255,255,255,0.45)", marginTop: 3 },
+  trendText: { fontSize: 9, color: COLORS.green, fontWeight: "700" },
+  statNum: { fontSize: 18, fontWeight: "900" },
+  statLabel: { fontSize: 9, color: "rgba(255,255,255,0.45)", marginTop: 2 },
   activityCard: {
     backgroundColor: COLORS.dark,
-    borderRadius: 16,
-    padding: 14,
-    marginHorizontal: 14,
-    marginBottom: 12,
+    borderRadius: 12,
+    padding: 10,
+    marginHorizontal: 10,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
   },
   cardTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "800",
     color: COLORS.white,
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  barRow: { marginBottom: 12 },
+  barRow: { marginBottom: 10 },
   barMeta: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 5,
+    marginBottom: 4,
+    gap: 8,
   },
-  barLabel: { fontSize: 11, color: "rgba(255,255,255,0.55)" },
-  barVal: { fontSize: 11, fontWeight: "700" },
+  barLabel: { fontSize: 10, color: "rgba(255,255,255,0.55)", flex: 1 },
+  barVal: { fontSize: 10, fontWeight: "700", flexShrink: 0 },
   barBg: {
-    height: 7,
+    height: 6,
     backgroundColor: "rgba(255,255,255,0.07)",
-    borderRadius: 4,
+    borderRadius: 3,
     overflow: "hidden",
   },
   barFill: { height: "100%", borderRadius: 4 },
   flaggedCard: {
     backgroundColor: COLORS.dark,
-    borderRadius: 16,
-    padding: 14,
-    marginHorizontal: 14,
-    marginBottom: 12,
+    borderRadius: 12,
+    padding: 10,
+    marginHorizontal: 10,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: "rgba(239,68,68,0.2)",
   },
   flaggedHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 8,
     marginBottom: 12,
+    flexWrap: "wrap",
   },
   noFlaggedContainer: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 30,
+    paddingVertical: 20,
   },
   noFlaggedText: {
-    fontSize: 12,
+    fontSize: 11,
     color: "rgba(255,255,255,0.6)",
-    marginTop: 8,
+    marginTop: 6,
     fontWeight: "600",
   },
   flagRow: {
@@ -404,39 +468,43 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: "rgba(239,68,68,0.07)",
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 8,
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 6,
     borderWidth: 1,
     borderColor: "rgba(239,68,68,0.12)",
+    flexWrap: "wrap",
   },
   flagInfo: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
     flex: 1,
+    minWidth: 200,
   },
   flagDetails: {
     flex: 1,
+    minWidth: 0,
   },
   flagTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: "rgba(255,255,255,0.9)",
   },
   flagCompany: {
-    fontSize: 10,
+    fontSize: 9,
     color: "rgba(255,255,255,0.6)",
-    marginTop: 2,
+    marginTop: 1,
   },
   flagActions: {
     flexDirection: "row",
-    gap: 6,
+    gap: 4,
+    flexShrink: 0,
   },
   approveBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
     backgroundColor: "rgba(16,185,129,0.12)",
     alignItems: "center",
     justifyContent: "center",
@@ -444,9 +512,9 @@ const styles = StyleSheet.create({
     borderColor: "rgba(16,185,129,0.3)",
   },
   deleteBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
     backgroundColor: "rgba(239,68,68,0.12)",
     alignItems: "center",
     justifyContent: "center",

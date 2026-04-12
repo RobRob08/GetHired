@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { auth } from "../firebase/firebaseConfig";
 import { subscribeUserNotifications } from "../services/applicationsService";
+
+const isLogoutPermissionError = (error) => {
+  return error?.code === "permission-denied" && !auth.currentUser;
+};
 
 const useNotifications = ({ recipientId }) => {
   const [notifications, setNotifications] = useState([]);
@@ -22,6 +27,12 @@ const useNotifications = ({ recipientId }) => {
         setLoading(false);
       },
       (err) => {
+        if (isLogoutPermissionError(err)) {
+          setNotifications([]);
+          setErrorMsg(null);
+          setLoading(false);
+          return;
+        }
         setErrorMsg(err?.message ?? "Could not load notifications.");
         setLoading(false);
       },
@@ -39,4 +50,3 @@ const useNotifications = ({ recipientId }) => {
 };
 
 export default useNotifications;
-

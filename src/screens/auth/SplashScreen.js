@@ -1,8 +1,9 @@
 // src/screens/auth/SplashScreen.js
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+const splashLogo = require('../../../assets/images/splash-icon.png');
 
 const SplashScreen = ({ navigation }) => {
   return (
@@ -14,7 +15,7 @@ const SplashScreen = ({ navigation }) => {
 
       {/* Logo */}
       <View style={styles.logoBox}>
-        <MaterialIcons name="assignment" size={56} color="#fff" />
+        <Image source={splashLogo} style={styles.logoImage} resizeMode="contain" />
       </View>
 
       {/* Title */}
@@ -22,7 +23,7 @@ const SplashScreen = ({ navigation }) => {
       <Text style={styles.subtitle}>YOUR CAREER STARTS HERE</Text>
 
       {/* CTA */}
-      <TouchableOpacity style={styles.btn} onPress={() => navigation.navigate('Landing')} activeOpacity={0.8}>
+      <TouchableOpacity style={styles.btn} onPress={() => navigation.replace('Landing')} activeOpacity={0.8}>
         <Text style={styles.btnText}>Get Started →</Text>
       </TouchableOpacity>
 
@@ -46,10 +47,15 @@ const styles = StyleSheet.create({
   logoBox: {
     backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 28,
-    padding: 22,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
     marginBottom: 22,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.25)',
+  },
+  logoImage: {
+    width: 72,
+    height: 72,
   },
   title: {
     fontSize: 36,

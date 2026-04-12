@@ -15,6 +15,14 @@ import { db } from "../firebase/firebaseConfig";
 const applicationsCollection = collection(db, "applications");
 const notificationsCollection = collection(db, "notifications");
 
+const sortByNewest = (items) => {
+  return [...items].sort((a, b) => {
+    const aMs = a?.createdAt?.toMillis?.() ?? 0;
+    const bMs = b?.createdAt?.toMillis?.() ?? 0;
+    return bMs - aMs;
+  });
+};
+
 export const applyToJob = async ({
   job,
   applicantId,
@@ -60,16 +68,14 @@ export const subscribeEmployerApplications = (
   onApplications,
   onError,
 ) => {
-  const q = query(
-    applicationsCollection,
-    where("employerId", "==", employerId),
-    orderBy("createdAt", "desc"),
-  );
+  const q = query(applicationsCollection, where("employerId", "==", employerId));
 
   return onSnapshot(
     q,
     (snap) => {
-      const apps = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const apps = sortByNewest(
+        snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+      );
       onApplications(apps);
     },
     (error) => onError?.(error),
@@ -84,13 +90,14 @@ export const subscribeUserApplications = (
   const q = query(
     applicationsCollection,
     where("applicantId", "==", applicantId),
-    orderBy("createdAt", "desc"),
   );
 
   return onSnapshot(
     q,
     (snap) => {
-      const apps = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const apps = sortByNewest(
+        snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+      );
       onApplications(apps);
     },
     (error) => onError?.(error),
@@ -172,4 +179,3 @@ export const markNotificationsRead = async (notificationIds) => {
     ),
   );
 };
-

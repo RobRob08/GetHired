@@ -14,25 +14,33 @@ const firebaseConfig = {
   appId: readEnv('EXPO_PUBLIC_FIREBASE_APP_ID'),
 };
 
-if (!firebaseConfig.apiKey) {
-  throw new Error(
-    'Missing EXPO_PUBLIC_FIREBASE_API_KEY. Create a .env file at project root, then restart Expo with: npx expo start -c'
-  );
-}
+const missingFirebaseKeys = Object.entries(firebaseConfig)
+  .filter(([, value]) => !value)
+  .map(([key]) => key);
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+const firebaseConfigError = missingFirebaseKeys.length
+  ? `Missing Firebase config: ${missingFirebaseKeys.join(', ')}. Add them to .env and rebuild the app.`
+  : null;
+
+const app = firebaseConfigError
+  ? null
+  : getApps().length
+    ? getApp()
+    : initializeApp(firebaseConfig);
 
 let auth;
-try {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
-} catch {
-  // Auth may already be initialized after fast refresh.
-  auth = getAuth(app);
+if (app) {
+  try {
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  } catch {
+    // Auth may already be initialized after fast refresh.
+    auth = getAuth(app);
+  }
 }
 
-const db = getFirestore(app);
+const db = app ? getFirestore(app) : null;
 
-export { app, auth, db };
+export { app, auth, db, firebaseConfigError };
 

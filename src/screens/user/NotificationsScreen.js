@@ -1,19 +1,17 @@
-import React, { useMemo, useState } from "react";
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import React, { useMemo } from "react";
+import {
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import COLORS from "../../constants/colors";
 import useNotifications from "../../hooks/useNotifications";
-import {
-  markNotificationsRead,
-} from "../../services/applicationsService";
+import { markNotificationsRead } from "../../services/applicationsService";
 
 const NotificationsScreen = ({ navigation, user }) => {
   const recipientId = user?.uid;
@@ -72,10 +70,7 @@ const NotificationsScreen = ({ navigation, user }) => {
         {notifications.map((n) => (
           <TouchableOpacity
             key={n.id}
-            style={[
-              styles.card,
-              !n.read && { borderColor: COLORS.primary },
-            ]}
+            style={[styles.card, !n.read && { borderColor: COLORS.primary }]}
             activeOpacity={0.9}
             onPress={async () => {
               if (n.read || !n.id) return;
@@ -114,68 +109,80 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
     backgroundColor: COLORS.headerBg,
   },
   backBtn: {
-    width: 40,
-    height: 36,
-    borderRadius: 10,
+    width: 36,
+    height: 32,
+    borderRadius: 8,
     backgroundColor: COLORS.white,
     alignItems: "center",
     justifyContent: "center",
-    elevation: 2,
+    elevation: 1,
+    flexShrink: 0,
   },
-  headerCenter: { flex: 1 },
-  title: { fontSize: 16, fontWeight: "900", color: COLORS.dark },
-  subtitle: { fontSize: 11, color: COLORS.mid, marginTop: 2 },
+  headerCenter: { flex: 1, minWidth: 0 },
+  title: { fontSize: 14, fontWeight: "900", color: COLORS.dark },
+  subtitle: { fontSize: 10, color: COLORS.mid, marginTop: 1 },
   markBtn: {
     backgroundColor: COLORS.white,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     borderWidth: 1,
     borderColor: COLORS.light,
+    flexShrink: 0,
   },
-  markText: { fontSize: 11, fontWeight: "800", color: COLORS.primary },
-  scroll: { flex: 1, paddingHorizontal: 14, paddingTop: 12 },
+  markText: { fontSize: 10, fontWeight: "800", color: COLORS.primary },
+  scroll: { flex: 1, paddingHorizontal: 10, paddingTop: 10 },
   emptyWrap: {
     backgroundColor: COLORS.white,
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: COLORS.light,
-    marginBottom: 12,
-  },
-  emptyTitle: { fontSize: 14, fontWeight: "900", color: COLORS.dark },
-  emptyText: { fontSize: 12, color: COLORS.mid, marginTop: 6, lineHeight: 16 },
-  card: {
-    backgroundColor: COLORS.white,
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 10,
+    padding: 12,
     borderWidth: 1.5,
     borderColor: COLORS.light,
     marginBottom: 10,
   },
-  cardTop: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  emptyTitle: { fontSize: 12, fontWeight: "900", color: COLORS.dark },
+  emptyText: { fontSize: 11, color: COLORS.mid, marginTop: 5, lineHeight: 15 },
+  card: {
+    backgroundColor: COLORS.white,
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1.5,
+    borderColor: COLORS.light,
+    marginBottom: 8,
+  },
+  cardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 6,
+  },
   iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 10,
     backgroundColor: "#EEF2FF",
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
   unreadDot: {
-    width: 9,
-    height: 9,
+    width: 8,
+    height: 8,
     borderRadius: 4,
     backgroundColor: COLORS.red,
   },
-  message: { fontSize: 13, fontWeight: "700", color: COLORS.dark, lineHeight: 18 },
+  message: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.dark,
+    lineHeight: 16,
+  },
 });
 
 export default NotificationsScreen;
-

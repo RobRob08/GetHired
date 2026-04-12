@@ -1,5 +1,10 @@
-import { useEffect, useState } from 'react';
-import { subscribeToActiveJobs } from '../services/jobsService';
+import { useEffect, useState } from "react";
+import { auth } from "../firebase/firebaseConfig";
+import { subscribeToActiveJobs } from "../services/jobsService";
+
+const isLogoutPermissionError = (error) => {
+  return error?.code === "permission-denied" && !auth.currentUser;
+};
 
 const useJobs = () => {
   const [jobs, setJobs] = useState([]);
@@ -10,12 +15,19 @@ const useJobs = () => {
     const unsubscribe = subscribeToActiveJobs(
       (nextJobs) => {
         setJobs(nextJobs);
+        setErrorMsg(null);
         setLoading(false);
       },
       (error) => {
-        setErrorMsg(error?.message ?? 'Could not load jobs.');
+        if (isLogoutPermissionError(error)) {
+          setJobs([]);
+          setErrorMsg(null);
+          setLoading(false);
+          return;
+        }
+        setErrorMsg(error?.message ?? "Could not load jobs.");
         setLoading(false);
-      }
+      },
     );
 
     return unsubscribe;
